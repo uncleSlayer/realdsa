@@ -1,0 +1,50 @@
+/* Site-wide tokens and base typography. Every topic page inherits these,
+   so labs only need to style their own pieces. */
+:root{
+  --bg:#eef3f6; --surface:#ffffff; --fg:#15212b; --muted:#5a6b78; --line:#c6d3dc;
+  --ptr:#0d6b94; --hl:#c96a00; --hl-soft:#fff1dc; --grid:#dde6ec;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body:"IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e151b; --surface:#16212a; --fg:#e3eaef; --muted:#93a4b1; --line:#2b3a46;
+  --ptr:#62bfe6; --hl:#ffb04a; --hl-soft:#3a2a12; --grid:#18232c; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e151b; --surface:#16212a; --fg:#e3eaef; --muted:#93a4b1; --line:#2b3a46;
+  --ptr:#62bfe6; --hl:#ffb04a; --hl-soft:#3a2a12; --grid:#18232c; color-scheme:dark}
+
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.6}
+img{max-width:100%}
+[hidden]{display:none!important}
+a{color:var(--ptr)}
+
+h1{font-family:var(--display);font-weight:800;font-size:clamp(2.1rem,5.5vw,3.4rem);line-height:1.02;margin:0;letter-spacing:-.015em;text-wrap:balance}
+h2{font-family:var(--display);font-weight:600;font-size:1.45rem;margin:0;text-wrap:balance}
+p{margin:0;max-width:68ch}
+code{font-family:var(--mono);font-size:.86em;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:0 4px}
+button:focus-visible,a:focus-visible{outline:3px solid var(--ptr);outline-offset:2px}
+
+.eyebrow{font-family:var(--mono);font-size:.74rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0}
+.lede{font-size:1.08rem;color:var(--muted)}
+
+/* page column shared by every page */
+.wrap{max-width:1040px;margin:0 auto;padding-block:40px 64px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));
+  display:grid;gap:36px}
+
+/* site chrome (namespaced so topic styles never collide with it) */
+.site-bar{border-bottom:1px solid var(--line);background:var(--surface)}
+.site-bar-in{max-width:1040px;margin:0 auto;display:flex;align-items:center;gap:16px;min-height:56px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+.site-brand{display:inline-flex;align-items:center;gap:10px;color:var(--fg);text-decoration:none;font:800 1.1rem var(--display);letter-spacing:-.01em}
+.site-brand img{width:26px;height:26px}
+.site-crumb{font:400 .82rem var(--mono);color:var(--muted);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.site-crumb:hover{color:var(--fg)}
+.site-spacer{flex:1}
+.site-theme{font:600 .8rem var(--mono);border:1px solid var(--line);background:var(--bg);color:var(--fg);padding:5px 10px;border-radius:999px;cursor:pointer;flex:none}
+.site-foot{border-top:1px solid var(--line);color:var(--muted);font-size:.85rem}
+.site-foot .site-bar-in{min-height:64px;flex-wrap:wrap;gap:6px 16px}

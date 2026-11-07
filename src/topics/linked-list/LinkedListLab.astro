@@ -1,0 +1,115 @@
+---
+// The interactive lab: markup here, behaviour in lab.js, styles in lab.css.
+// Styles are global (not scoped) because lab.js creates most of the DOM at runtime.
+import './lab.css';
+---
+
+<div class="wrap">
+  <header class="lab-head">
+    <p class="eyebrow">Data structures in Python</p>
+    <h1>Linked List Lab</h1>
+    <p class="lede">Pick an operation and step through it line by line. The diagram shows exactly which pointer each line of Python changes.</p>
+  </header>
+
+  <section class="intro" aria-label="Building blocks">
+    <div class="card">
+      <h3>Singly linked: each node knows the next one</h3>
+<pre class="snip">class Node:
+    def __init__(self, data):
+        self.data = data
+        self.next = None
+
+class SinglyLinkedList:
+    def __init__(self):
+        self.head = None
+        self.size = 0</pre>
+      <p>The list object only stores <code>head</code>. Everything else is reached by following <code>next</code> until it is <code>None</code>.</p>
+    </div>
+    <div class="card">
+      <h3>Doubly linked: each node knows both neighbours</h3>
+<pre class="snip">class DNode:
+    def __init__(self, data):
+        self.data = data
+        self.prev = None
+        self.next = None
+
+class DoublyLinkedList:
+    def __init__(self):
+        self.head = None
+        self.tail = None
+        self.size = 0</pre>
+      <p>Keeping <code>tail</code> and <code>prev</code> costs extra memory, but makes work at both ends O(1).</p>
+    </div>
+    <div class="readhow" style="grid-column:1/-1">
+      <span><i class="sw" style="background:var(--ptr)"></i>a pointer (next / prev)</span>
+      <span><i class="sw" style="background:var(--hl)"></i>changed by the highlighted line</span>
+      <span><svg width="24" height="14" aria-hidden="true"><rect x="1" y="1" width="22" height="12" fill="none" stroke="currentColor"/><line x1="3" y1="12" x2="21" y2="2" stroke="currentColor"/></svg>field is None</span>
+      <span><svg width="24" height="14" aria-hidden="true"><rect x="1" y="1" width="22" height="12" rx="3" fill="currentColor"/></svg>list attribute (head, tail)</span>
+      <span><svg width="24" height="14" aria-hidden="true"><rect x="1" y="1" width="22" height="12" rx="3" fill="none" stroke="currentColor"/></svg>local variable</span>
+      <span style="opacity:.45">faded = nothing references it (garbage)</span>
+    </div>
+  </section>
+
+  <section class="lab" aria-label="Interactive lab">
+    <div class="pickers">
+      <div class="seg" role="group" aria-label="List type">
+        <button id="t-singly" data-kind="singly" aria-pressed="true">Singly linked</button>
+        <button id="t-doubly" data-kind="doubly" aria-pressed="false">Doubly linked</button>
+      </div>
+      <div class="ops" id="ops" role="group" aria-label="Operation"></div>
+    </div>
+
+    <div class="bench">
+      <div class="benchhead">
+        <span class="call" id="call"></span><span class="badge" id="big"></span>
+        <span class="sum" id="sum"></span>
+      </div>
+      <div class="stagewrap"><svg id="stage" role="img" aria-label="Linked list diagram">
+        <defs>
+          <marker id="mk-ptr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--ptr)"/></marker>
+          <marker id="mk-hl" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--hl)"/></marker>
+          <marker id="mk-var" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--fg)"/></marker>
+        </defs>
+        <g id="layer"></g>
+      </svg></div>
+      <div class="lower">
+        <div class="code" id="code" aria-label="Python code"></div>
+        <div class="narr">
+          <div class="stepno" id="stepno"></div>
+          <p id="narr" aria-live="polite"></p>
+          <div class="vars" id="vars" aria-label="Variables"></div>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="btn" id="prev">← Back</button>
+        <button class="btn primary" id="next">Next step →</button>
+        <button class="btn" id="play">▶ Play</button>
+        <button class="btn" id="reset">Restart</button>
+        <div class="dots" id="dots"></div>
+      </div>
+      <p class="hint">Tip: the ← and → keys step too.</p>
+    </div>
+  </section>
+
+  <section class="ref">
+    <h2>Cost of each operation</h2>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Operation</th><th>Python list</th><th>Singly linked</th><th>Doubly linked</th></tr></thead>
+      <tbody>
+        <tr><td>Access by index</td><td>O(1)</td><td>O(n)</td><td>O(n), at most n/2 steps</td></tr>
+        <tr><td>Insert at front</td><td>O(n)</td><td>O(1)</td><td>O(1)</td></tr>
+        <tr><td>Insert at end</td><td>O(1) amortised</td><td>O(n), O(1) with a tail</td><td>O(1)</td></tr>
+        <tr><td>Remove from front</td><td>O(n)</td><td>O(1)</td><td>O(1)</td></tr>
+        <tr><td>Remove from end</td><td>O(1)</td><td>O(n)</td><td>O(1)</td></tr>
+        <tr><td>Remove a node you hold</td><td>n/a</td><td>O(n), needs the node before it</td><td>O(1)</td></tr>
+        <tr><td>Search / find</td><td>O(n)</td><td>O(n)</td><td>O(n)</td></tr>
+        <tr><td>Extra memory per item</td><td>lowest</td><td>1 reference</td><td>2 references</td></tr>
+      </tbody>
+    </table></div>
+    <p>In everyday Python, <code>collections.deque</code> gives you doubly-linked behaviour at both ends. Writing your own is how you learn the pointer logic.</p>
+  </section>
+</div>
+
+<script>
+  import './lab.js';
+</script>

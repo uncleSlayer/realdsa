@@ -1,0 +1,11 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import LinkedListLab from '../../topics/linked-list/LinkedListLab.astro';
+import { getTopic } from '../../data/topics';
+
+const topic = getTopic('linked-list');
+---
+
+<BaseLayout title={`${topic.title} · RealDSA`} description={topic.summary} crumb={topic.title}>
+  <LinkedListLab />
+</BaseLayout>
