@@ -6,7 +6,7 @@ import { defineConfig } from 'astro/config';
 // also set `base: '/realdsa'`. Internal links go through `url()` in
 // src/lib/url.ts, so they keep working either way.
 export default defineConfig({
-  // site: 'https://realdsa.example.com',
+  site: 'https://dsa.siddhantota.in',
   // base: '/realdsa',
   trailingSlash: 'ignore',
 });

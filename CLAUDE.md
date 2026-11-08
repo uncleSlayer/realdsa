@@ -1,6 +1,6 @@
-# RealDSA
+# DSA
 
-Astro static site of interactive DSA labs, live at https://realdsa.siddhantota.in.
+Astro static site of interactive DSA labs, live at https://dsa.siddhantota.in.
 How the repo is laid out and how to add a topic: see README.md.
 
 ## Every change goes live

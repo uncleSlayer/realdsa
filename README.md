@@ -1,4 +1,4 @@
-# RealDSA
+# DSA
 
 Interactive labs for learning data structures and algorithms. Each lab runs real code one line at a
 time and draws what that line does to memory.
@@ -68,7 +68,7 @@ Start from a standalone HTML artifact (e.g. `stack-lab.html`):
    import { getTopic } from '../../data/topics';
    const topic = getTopic('stack');
    ---
-   <BaseLayout title={`${topic.title} · RealDSA`} description={topic.summary} crumb={topic.title}>
+   <BaseLayout title={`${topic.title} · DSA`} description={topic.summary}>
      <StackLab />
    </BaseLayout>
    ```
