@@ -1,0 +1,320 @@
+---
+// The interactive lab: markup here, behaviour in lab.js, styles in lab.css.
+// Styles are global (not scoped) because lab.js creates most of the DOM at runtime.
+import './lab.css';
+
+// "Same 7 values, two shapes" figure: balanced (middle first) vs skewed (sorted input).
+const vals = [10, 20, 30, 40, 50, 60, 70];
+const balanced = [
+  { v: 40, x: 150, y: 30 }, { v: 20, x: 80, y: 90 }, { v: 60, x: 220, y: 90 },
+  { v: 10, x: 45, y: 150 }, { v: 30, x: 115, y: 150 }, { v: 50, x: 185, y: 150 }, { v: 70, x: 255, y: 150 },
+];
+const balancedEdges = [[0, 1], [0, 2], [1, 3], [1, 4], [2, 5], [2, 6]];
+const skewed = vals.map((v, i) => ({ v, x: 24 + i * 42, y: 22 + i * 36 }));
+const skewedEdges = vals.slice(1).map((_, i) => [i, i + 1]);
+
+// Min and max height for a few sizes.
+const sizes = [7, 15, 1000, 1000000];
+const fmtN = (n: number) => n.toLocaleString('en-US');
+---
+
+<div class="wrap bst-root">
+  <header class="bst-head">
+    <p class="eyebrow">Data structures in Python</p>
+    <h1>Binary Search Tree Lab</h1>
+    <p class="lede">Code a BST from scratch. Step through insert, search and delete, the three depth-first traversals and the height, and watch the call stack grow and shrink as the recursion runs.</p>
+  </header>
+
+  <section class="bst-intro" aria-label="Building blocks">
+    <div class="bst-card">
+      <h3>The BST property</h3>
+<pre class="bst-snip">#           50
+#         /    \
+#       30      70
+#      /  \    /  \
+#    20   40  60   80
+#         /
+#       35</pre>
+      <p>For <strong>every</strong> node, everything in its left subtree is smaller and everything in its right subtree is larger. The whole subtree, not just the child: 35 sits under 40, but it is also in 30's right subtree and 50's left subtree, so it must be greater than 30 and less than 50.</p>
+    </div>
+    <div class="bst-card">
+      <h3>Two small classes</h3>
+<pre class="bst-snip">class Node:
+    def __init__(self, value):
+        self.value = value
+        self.left = None    # smaller values
+        self.right = None   # larger values
+
+class BST:
+    def __init__(self):
+        self.root = None    # empty tree</pre>
+      <p>A node holds a value and two links. The tree only remembers its root; everything else is reached by following links down. An empty subtree is just <code>None</code>.</p>
+    </div>
+    <div class="bst-card">
+      <h3>Duplicates: pick a rule</h3>
+<pre class="bst-snip">tree.insert(40)
+tree.insert(40)   # ignored: 40 is already there</pre>
+      <p>This lab treats the tree like a set and ignores a value that is already present. Other common rules: keep a <code>count</code> in each node, or always send equal values the same way (say, right with <code>&gt;=</code>). Any rule works if search and delete follow the same one.</p>
+    </div>
+    <div class="bst-card">
+      <h3>Words you will need</h3>
+<pre class="bst-snip">root     the top node (50), no parent
+leaf     a node with no children (20, 35, 60, 80)
+subtree  a node plus everything below it
+depth    edges from the root down to a node
+height   edges on the longest path down to a leaf</pre>
+      <p>In the example, 35 has depth 3, and the whole tree has height 3. The height is what decides how fast a BST is, so it gets its own operation and section below.</p>
+    </div>
+    <div class="bst-card bst-full bst-split">
+      <div>
+        <h3>Recursive or loop?</h3>
+        <p>Insert, search and delete follow one path down, so a loop works and needs only O(1) extra memory. The lab uses recursion for insert and delete because the <em>return the subtree, assign it back</em> pattern is short and handles every case, and a loop for search. Traversals and height must visit both children of every node, so recursion is the natural fit there.</p>
+        <p>Every recursive call is a frame on the call stack, so recursion uses O(h) extra memory. The lab draws that stack next to the tree.</p>
+      </div>
+<pre class="bst-snip">def insert(self, value):         # loop version
+    new = Node(value)
+    if self.root is None:
+        self.root = new
+        return
+    node = self.root
+    while True:
+        if value &lt; node.value:
+            if node.left is None:
+                node.left = new
+                return
+            node = node.left
+        elif value &gt; node.value:
+            if node.right is None:
+                node.right = new
+                return
+            node = node.right
+        else:
+            return                # duplicate</pre>
+    </div>
+    <div class="bst-readhow">
+      <span><svg width="20" height="20" aria-hidden="true"><circle cx="10" cy="10" r="8" class="bst-lg-focus"/></svg>current node</span>
+      <span><svg width="20" height="20" aria-hidden="true"><circle cx="10" cy="10" r="8" class="bst-lg-path"/></svg>on the path down / waiting on the call stack</span>
+      <span><svg width="20" height="20" aria-hidden="true"><circle cx="10" cy="10" r="8" class="bst-lg-done"/></svg>done: output or finished</span>
+      <span><svg width="20" height="20" aria-hidden="true"><circle cx="10" cy="10" r="8" class="bst-lg-doomed"/></svg>about to be unlinked</span>
+      <span><svg width="36" height="20" aria-hidden="true"><rect x="2" y="3" width="32" height="14" rx="5" class="bst-lg-none"/></svg>an empty child (None)</span>
+      <span><svg width="34" height="16" aria-hidden="true"><rect x="1" y="1" width="32" height="14" rx="4" class="bst-lg-tag"/></svg>local variable (node, succ)</span>
+      <span><svg width="34" height="18" aria-hidden="true"><rect x="1" y="1" width="32" height="16" rx="8" class="bst-lg-badge"/></svg>returned height</span>
+    </div>
+  </section>
+
+  <section class="bst-lab" aria-label="Interactive lab">
+    <div class="bst-pickers">
+      <div class="bst-ops" id="bst-ops" role="group" aria-label="Operation"></div>
+      <form class="bst-form" id="bst-treeform" novalidate>
+        <label for="bst-tin">Tree, built by inserting</label>
+        <input id="bst-tin" type="text" autocomplete="off" spellcheck="false" aria-describedby="bst-terr" />
+        <button type="submit" class="bst-btn">Use this tree</button>
+        <button type="button" class="bst-btn" id="bst-tex" hidden>Back to example</button>
+        <p class="bst-err" id="bst-terr" role="alert"></p>
+      </form>
+      <form class="bst-form" id="bst-valform" novalidate hidden>
+        <label for="bst-vin" id="bst-vlabel">Value</label>
+        <input id="bst-vin" class="bst-short" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" aria-describedby="bst-verr" />
+        <button type="submit" class="bst-btn">Run it</button>
+        <p class="bst-err" id="bst-verr" role="alert"></p>
+      </form>
+      <form class="bst-form" id="bst-buildform" novalidate hidden>
+        <label for="bst-bin">Values to insert, in order</label>
+        <input id="bst-bin" type="text" autocomplete="off" spellcheck="false" aria-describedby="bst-berr" />
+        <button type="submit" class="bst-btn">Run it</button>
+        <p class="bst-err" id="bst-berr" role="alert"></p>
+      </form>
+      <div class="bst-presets" id="bst-presets" role="group" aria-label="Examples" hidden></div>
+    </div>
+
+    <div class="bst-bench">
+      <div class="bst-benchhead">
+        <span class="bst-call" id="bst-call"></span><span class="bst-badge" id="bst-big"></span>
+        <span class="bst-sum" id="bst-sum"></span>
+      </div>
+      <div class="bst-stagewrap">
+        <div class="bst-svgbox">
+          <svg id="bst-stage" role="img" aria-label="Binary search tree">
+            <g id="bst-layer"></g>
+          </svg>
+        </div>
+        <aside class="bst-side" aria-label="Call stack and output">
+          <div class="bst-panel">
+            <div class="bst-ptitle">Call stack <span>top first</span><span class="bst-depth" id="bst-depth"></span></div>
+            <ol class="bst-stack" id="bst-stack"></ol>
+          </div>
+          <div class="bst-panel" id="bst-outbox" hidden>
+            <div class="bst-ptitle">Output</div>
+            <div class="bst-out" id="bst-out"></div>
+          </div>
+        </aside>
+      </div>
+      <div class="bst-lower">
+        <div class="bst-code" id="bst-code" aria-label="Python code"></div>
+        <div class="bst-narr">
+          <div class="bst-stepno" id="bst-stepno"></div>
+          <p id="bst-narr" aria-live="polite"></p>
+          <div class="bst-vars" id="bst-vars" aria-label="Variables"></div>
+          <button type="button" class="bst-btn bst-keep" id="bst-keep" hidden>Keep this tree for the other operations</button>
+        </div>
+      </div>
+      <div class="bst-controls">
+        <button type="button" class="bst-btn" id="bst-prev">← Back</button>
+        <button type="button" class="bst-btn bst-primary" id="bst-next">Next step →</button>
+        <button type="button" class="bst-btn" id="bst-play" aria-pressed="false">▶ Play</button>
+        <button type="button" class="bst-btn" id="bst-reset">Restart</button>
+        <div class="bst-dots" id="bst-dots" role="group" aria-label="Steps"></div>
+      </div>
+      <p class="bst-hint">Tip: the ← and → keys step too. Nodes are drawn left to right in sorted order, so a node's position across the page is its rank.</p>
+    </div>
+  </section>
+
+  <section class="bst-sec" aria-labelledby="bst-height">
+    <h2 id="bst-height">Max height and why it matters</h2>
+    <p>Insert, search and delete each walk one path from the root down, so they cost O(h), where h is the height. That makes the height, not the number of nodes, the number that decides how fast a BST is. And the height depends entirely on the order the values arrived in.</p>
+    <figure class="bst-shapes">
+      <figcaption>The same 7 values, inserted in two different orders</figcaption>
+      <div class="bst-shapegrid">
+        <div>
+          <svg viewBox="0 0 300 175" role="img" aria-label="Balanced tree from inserting 40, 20, 60, 10, 30, 50, 70: height 2">
+            {balancedEdges.map(([a, b]) => <line x1={balanced[a].x} y1={balanced[a].y} x2={balanced[b].x} y2={balanced[b].y} class="bst-sedge" />)}
+            {balanced.map((n) => <g transform={`translate(${n.x} ${n.y})`}><circle r="16" class="bst-sdisc" /><text y="5" class="bst-sval">{n.v}</text></g>)}
+          </svg>
+          <p><code>40, 20, 60, 10, 30, 50, 70</code><br />middle first: height <strong>2</strong>, the minimum, ⌊log₂ 7⌋</p>
+        </div>
+        <div>
+          <svg viewBox="0 0 300 260" role="img" aria-label="Skewed tree from inserting 10 to 70 in sorted order: a chain of height 6">
+            {skewedEdges.map(([a, b]) => <line x1={skewed[a].x} y1={skewed[a].y} x2={skewed[b].x} y2={skewed[b].y} class="bst-sedge" />)}
+            {skewed.map((n) => <g transform={`translate(${n.x} ${n.y})`}><circle r="16" class="bst-sdisc bst-sbad" /><text y="5" class="bst-sval">{n.v}</text></g>)}
+          </svg>
+          <p><code>10, 20, 30, 40, 50, 60, 70</code><br />sorted: height <strong>6</strong>, the maximum, n − 1</p>
+        </div>
+      </div>
+    </figure>
+    <p>Sorted input sends every new value to the right of the last one, so the "tree" is a linked list leaning right. Searching it is a linear scan. Try <strong>Build from a list</strong> above with the presets to watch both shapes grow.</p>
+    <div class="bst-tablewrap"><table>
+      <caption>Height bounds for n nodes (edges on the longest root-to-leaf path)</caption>
+      <thead><tr><th>n</th><th>Best: ⌊log₂ n⌋</th><th>Worst: n − 1</th></tr></thead>
+      <tbody>
+        {sizes.map((n) => <tr><td>{fmtN(n)}</td><td>{Math.floor(Math.log2(n))}</td><td>{fmtN(n - 1)}</td></tr>)}
+      </tbody>
+    </table></div>
+    <ul class="bst-points">
+      <li><strong>Why ⌊log₂ n⌋ is the minimum.</strong> Level d holds at most 2<sup>d</sup> nodes, so a tree of height h holds at most 2<sup>h+1</sup> − 1. Fitting n nodes needs h ≥ log₂(n + 1) − 1, which rounds up to ⌊log₂ n⌋.</li>
+      <li><strong>Random order is usually fine.</strong> Values inserted in a random order give a height of O(log n) on average. Sorted or nearly sorted input, which real data often is, gives the worst case.</li>
+      <li><strong>Deep trees break recursion.</strong> Python stops at about 1,000 nested calls. A skewed tree of 5,000 nodes makes the recursive <code>height</code>, <code>inorder</code> or <code>_insert</code> raise <code>RecursionError</code>; the loop versions still work.</li>
+      <li><strong>The fix is to rebalance as you go.</strong> Self-balancing trees such as <strong>AVL trees</strong> and <strong>red-black trees</strong> rotate nodes after each insert and delete to keep h = O(log n) whatever the input order.</li>
+    </ul>
+    <div class="bst-conv">
+      <div class="bst-card">
+        <h3>Counting edges (this lab)</h3>
+<pre class="bst-snip">def height(self, node):
+    if node is None:
+        return -1
+    return 1 + max(self.height(node.left),
+                   self.height(node.right))
+# empty: -1   one node: 0   example tree: 3</pre>
+      </div>
+      <div class="bst-card">
+        <h3>Counting nodes ("max depth")</h3>
+<pre class="bst-snip">def max_depth(self, node):
+    if node is None:
+        return 0
+    return 1 + max(self.max_depth(node.left),
+                   self.max_depth(node.right))
+# empty: 0    one node: 1   example tree: 4</pre>
+      </div>
+    </div>
+    <p>Both are correct; they differ by exactly 1. Textbooks usually mean edges when they say height. Many coding problems ask for "maximum depth" and mean nodes. Check which one a question wants, and only the base case changes.</p>
+  </section>
+
+  <section class="bst-sec" aria-labelledby="bst-mistakes">
+    <h2 id="bst-mistakes">Common mistakes</h2>
+    <div class="bst-intro">
+      <div class="bst-card">
+        <h3>Checking only the children</h3>
+<pre class="bst-snip bst-bad">def is_bst(node):
+    if node is None:
+        return True
+    if node.left and node.left.value &gt;= node.value:
+        return False
+    if node.right and node.right.value &lt;= node.value:
+        return False
+    return is_bst(node.left) and is_bst(node.right)</pre>
+<pre class="bst-snip bst-good">def is_bst(node, lo=float("-inf"), hi=float("inf")):
+    if node is None:
+        return True
+    if not lo &lt; node.value &lt; hi:
+        return False
+    return (is_bst(node.left, lo, node.value) and
+            is_bst(node.right, node.value, hi))</pre>
+        <p>Change 40 to 60 in the example tree. Every parent and child pair still looks fine (60 &gt; 30, 35 &lt; 60), but 60 is in 50's left subtree, so the tree is broken. Pass down the range each subtree must stay inside, or check that inorder is strictly increasing.</p>
+      </div>
+      <div class="bst-card">
+        <h3>Dropping the recursive result</h3>
+<pre class="bst-snip bst-bad">def _insert(self, node, value):
+    if node is None:
+        return Node(value)
+    if value &lt; node.value:
+        self._insert(node.left, value)   # result lost
+    elif value &gt; node.value:
+        self._insert(node.right, value)  # result lost
+    # forgot: return node</pre>
+<pre class="bst-snip bst-good">    if value &lt; node.value:
+        node.left = self._insert(node.left, value)
+    elif value &gt; node.value:
+        node.right = self._insert(node.right, value)
+    return node</pre>
+        <p>The new <code>Node</code> is returned into thin air, so nothing is ever linked. Forget <code>return node</code> and every caller stores <code>None</code>, cutting off whole subtrees. The same goes for <code>self.root = self._insert(self.root, value)</code>: without it, inserting into an empty tree does nothing. Delete has the identical trap.</p>
+      </div>
+      <div class="bst-card">
+        <h3>Mixing up the traversal orders</h3>
+<pre class="bst-snip"># the name says where the node goes
+preorder:  node, left, right  # 50 30 20 40 35 70 60 80
+inorder:   left, node, right  # 20 30 35 40 50 60 70 80
+postorder: left, right, node  # 20 35 40 30 60 80 70 50</pre>
+        <p>All three walk the tree identically; only the position of <code>out.append</code> moves. Quick checks: inorder of a BST is sorted, preorder starts with the root, postorder ends with it. Run <strong>All three in one walk</strong> above to see them side by side.</p>
+      </div>
+      <div class="bst-card">
+        <h3>Height off by one</h3>
+<pre class="bst-snip bst-bad">def height(self, node):
+    if node is None:
+        return 0           # counts nodes...
+    return 1 + max(self.height(node.left),
+                   self.height(node.right))
+# ...but then compared with a log2(n) bound for edges</pre>
+        <p>Neither base case is wrong on its own. The bug is mixing them: a node-counting height next to an edge-based formula, or a leaf check (<code>if not node.left and not node.right: return 0</code>) stacked on top of a <code>None</code> check that also returns 0. Pick a convention and say it in a comment.</p>
+      </div>
+      <div class="bst-card bst-full">
+        <h3>Two-children delete that leaves a duplicate</h3>
+<pre class="bst-snip bst-bad">succ = node.right
+while succ.left is not None:
+    succ = succ.left
+node.value = succ.value      # copied, but the successor is still down there</pre>
+<pre class="bst-snip bst-good">node.right = self._delete(node.right, succ.value)</pre>
+        <p>Copying the successor's value is only half the job; the old successor node must be removed from the right subtree, or its value appears twice. Removing it is easy because the successor never has a left child.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="bst-ref">
+    <h2>Cost of each operation</h2>
+    <div class="bst-tablewrap"><table>
+      <thead><tr><th>Operation</th><th>Average (h ≈ log n)</th><th>Worst (h = n − 1)</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>Search</td><td>O(log n)</td><td>O(n)</td><td>one comparison per level, one path down</td></tr>
+        <tr><td>Insert</td><td>O(log n)</td><td>O(n)</td><td>search for the empty spot, then link a leaf</td></tr>
+        <tr><td>Delete</td><td>O(log n)</td><td>O(n)</td><td>find the node; the successor is further down the same kind of path</td></tr>
+        <tr><td>Min / max</td><td>O(log n)</td><td>O(n)</td><td>keep going left (min) or right (max)</td></tr>
+        <tr><td>Preorder / inorder / postorder</td><td>O(n)</td><td>O(n)</td><td>every node once; stack space O(h)</td></tr>
+        <tr><td>Height</td><td>O(n)</td><td>O(n)</td><td>every node once, postorder; stack space O(h)</td></tr>
+        <tr><td>Build from n values</td><td>O(n log n)</td><td>O(n²)</td><td>n inserts; sorted input is the worst case</td></tr>
+      </tbody>
+    </table></div>
+    <p>Space for the tree itself is O(n): one <code>Node</code> per value. Recursive versions add O(h) for the call stack, which is O(log n) when balanced and O(n) when skewed.</p>
+  </section>
+</div>
+
+<script>
+  import './lab.js';
+</script>

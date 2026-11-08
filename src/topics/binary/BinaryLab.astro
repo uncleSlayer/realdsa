@@ -1,0 +1,218 @@
+---
+// The interactive lab: markup here, behaviour in lab.js, styles in lab.css.
+// Styles are global (not scoped) because lab.js creates most of the DOM at runtime.
+import './lab.css';
+
+// "How many bits?" table: every n from 2^(k-1) to 2^k - 1 needs exactly k bits.
+const bitRows = [1, 2, 3, 4, 8, 10, 16].map((k) => ({
+  k, lo: 2 ** (k - 1), hi: 2 ** k - 1,
+}));
+const big = [
+  { n: '1,000', k: 10 },
+  { n: '1,000,000', k: 20 },
+  { n: '1,000,000,000', k: 30 },
+  { n: '2⁶³ − 1 (largest signed 64-bit int)', k: 63 },
+];
+const fstr = 'f"{n:b}"';
+const fpad = 'f"{n:08b}"';
+---
+
+<div class="wrap bn-root">
+  <header class="bn-head">
+    <p class="eyebrow">Number systems in Python</p>
+    <h1>Binary Numbers Lab</h1>
+    <p class="lede">Write a number in base 2 by hand, the way <code>bin()</code> does it for you. Step through the division ladder, the bit-operator version, two ways back to decimal and a few classic bit tricks, and watch every bit land in its place value.</p>
+  </header>
+
+  <section class="bn-intro" aria-label="Building blocks">
+    <div class="bn-card">
+      <h3>Place values: base 10 vs base 2</h3>
+<pre class="bn-snip"># base 10: each place is worth 10x the one to its right
+307  = 3*100 + 0*10 + 7*1
+
+# base 2: each place is worth 2x the one to its right
+1101 = 1*8 + 1*4 + 0*2 + 1*1   # = 13</pre>
+      <p>Same idea, different base. In base 2 the places are 1, 2, 4, 8, 16, … (2⁰, 2¹, 2², …), counted from the <strong>right</strong>, starting at 0. Each digit can only be 0 or 1: the place is either used or not.</p>
+    </div>
+    <div class="bn-card">
+      <h3>Bits and bytes</h3>
+<pre class="bn-snip">1 bit   -&gt;   2 patterns   0, 1
+4 bits  -&gt;  16 patterns   0 .. 15
+8 bits  -&gt; 256 patterns   0 .. 255   (1 byte)
+k bits  -&gt; 2**k patterns</pre>
+      <p>A <strong>bit</strong> is one binary digit. Hardware stores it as something with two states: a transistor off or on, a voltage low or high. Two states are easy to tell apart reliably, which is why computers count in base 2. Eight bits make a <strong>byte</strong>.</p>
+    </div>
+    <div class="bn-card">
+      <h3>Python already knows binary</h3>
+<pre class="bn-snip">bin(37)            # '0b100101'
+format(37, "b")    # '100101'
+format(5, "08b")   # '00000101'  pad to 8
+int("100101", 2)   # 37
+0b100101           # 37, a binary literal
+(37).bit_length()  # 6</pre>
+      <p>In an interview or exam you are usually asked to write the conversion yourself. Use these to <em>check</em> your answer. Note that <code>bin()</code> adds a <code>'0b'</code> prefix; slice it off with <code>bin(n)[2:]</code>.</p>
+    </div>
+    <div class="bn-card">
+      <h3>The bit operators</h3>
+<pre class="bn-snip">n &amp; 1    # last bit        same as n % 2
+n &gt;&gt; 1   # drop last bit   same as n // 2
+n &lt;&lt; 1   # add a 0 bit     same as n * 2
+a &amp; b    # 1 where both are 1
+a | b    # 1 where either is 1
+a ^ b    # 1 where they differ</pre>
+      <p>These work on the bits directly, place by place. For non-negative ints the shortcuts on the right give the same answers, which is why the division lab and the bit-operator lab take identical steps.</p>
+    </div>
+    <div class="bn-readhow">
+      <span><svg width="26" height="22" aria-hidden="true"><rect x="1" y="1" width="24" height="20" rx="4" class="bn-lg-one"/></svg>a 1 bit: this place value counts</span>
+      <span><svg width="26" height="22" aria-hidden="true"><rect x="1" y="1" width="24" height="20" rx="4" class="bn-lg-zero"/></svg>a 0 bit</span>
+      <span><svg width="26" height="22" aria-hidden="true"><rect x="1" y="1" width="24" height="20" rx="4" class="bn-lg-blank"/></svg>not known yet / leading place</span>
+      <span><svg width="26" height="22" aria-hidden="true"><rect x="2" y="2" width="22" height="18" rx="4" class="bn-lg-focus"/></svg>touched by the highlighted line</span>
+      <span><svg width="26" height="22" aria-hidden="true"><rect x="1.5" y="1.5" width="23" height="19" rx="4" class="bn-lg-chg"/></svg>bit that just changed</span>
+      <span><svg width="26" height="22" aria-hidden="true"><rect x="1" y="1" width="24" height="20" rx="10" class="bn-lg-list"/></svg>item in a Python list</span>
+    </div>
+  </section>
+
+  <section class="bn-lab" aria-label="Interactive lab">
+    <div class="bn-pickers">
+      <div class="bn-ops" id="bn-ops" role="group" aria-label="Operation"></div>
+      <form class="bn-custom" id="bn-custom" novalidate>
+        <label for="bn-in" id="bn-in-label">n</label>
+        <input id="bn-in" type="text" autocomplete="off" spellcheck="false" aria-describedby="bn-err" />
+        <button type="submit" class="bn-btn">Run it</button>
+        <button type="button" class="bn-btn" id="bn-ex" hidden>Back to example</button>
+        <p class="bn-err" id="bn-err" role="alert"></p>
+      </form>
+    </div>
+
+    <div class="bn-bench">
+      <div class="bn-benchhead">
+        <span class="bn-call" id="bn-call"></span><span class="bn-badge" id="bn-big"></span>
+        <span class="bn-sum" id="bn-sum"></span>
+      </div>
+      <div class="bn-stagewrap"><svg id="bn-stage" role="img" aria-label="Place values and bits">
+        <g id="bn-layer"></g>
+      </svg></div>
+      <div class="bn-lower">
+        <div class="bn-code" id="bn-code" aria-label="Python code"></div>
+        <div class="bn-narr">
+          <div class="bn-stepno" id="bn-stepno"></div>
+          <p id="bn-narr" aria-live="polite"></p>
+          <div class="bn-vars" id="bn-vars" aria-label="Variables"></div>
+        </div>
+      </div>
+      <div class="bn-controls">
+        <button type="button" class="bn-btn" id="bn-prev">← Back</button>
+        <button type="button" class="bn-btn bn-primary" id="bn-next">Next step →</button>
+        <button type="button" class="bn-btn" id="bn-play" aria-pressed="false">▶ Play</button>
+        <button type="button" class="bn-btn" id="bn-reset">Restart</button>
+        <div class="bn-dots" id="bn-dots" role="group" aria-label="Steps"></div>
+      </div>
+      <p class="bn-hint">Tip: the ← and → keys step too. Try n = 0, a power of two like 64, or 4095 (twelve 1 bits).</p>
+    </div>
+  </section>
+
+  <section class="bn-sec" aria-labelledby="bn-why">
+    <h2 id="bn-why">Why n has floor(log₂ n) + 1 bits, and why that makes it O(log n)</h2>
+    <p>With k bits the biggest number you can write is k ones: 2<sup>k</sup> − 1. The smallest k-bit number is a 1 followed by zeros: 2<sup>k−1</sup>. So every n from 2<sup>k−1</sup> up to 2<sup>k</sup> − 1 needs exactly k bits.</p>
+    <div class="bn-tablewrap"><table>
+      <caption>How many bits each range of numbers needs</caption>
+      <thead><tr><th>Bits k</th><th>Smallest n (2<sup>k−1</sup>)</th><th>Largest n (2<sup>k</sup> − 1)</th><th>Example</th></tr></thead>
+      <tbody>
+        {bitRows.map((r) => (
+          <tr><td>{r.k}</td><td>{r.lo}</td><td>{r.hi}</td><td>{r.lo} = 1{'0'.repeat(r.k - 1)}</td></tr>
+        ))}
+      </tbody>
+    </table></div>
+    <p>Take log₂ of 2<sup>k−1</sup> ≤ n &lt; 2<sup>k</sup> and you get k − 1 ≤ log₂ n &lt; k, so k − 1 is log₂ n rounded down:</p>
+    <p class="bn-formula">bits(n) = floor(log₂ n) + 1      (n ≥ 1; 0 is written "0")</p>
+    <p>Both <code>to_binary</code> loops run once per bit, because every <code>n //= 2</code> (or <code>n &gt;&gt;= 1</code>) knocks exactly one bit off the right-hand end. Halving until you reach 0 takes floor(log₂ n) + 1 steps, so the conversion is <strong>O(log n)</strong>. Doubling n adds only one loop. Going the other way, <code>to_decimal(s)</code> touches each of the k digits once: O(k), which is the same thing measured in digits instead of in the value.</p>
+    <div class="bn-tablewrap"><table class="bn-narrow">
+      <caption>Big numbers stay short</caption>
+      <thead><tr><th>n</th><th>Bits (= loops)</th></tr></thead>
+      <tbody>{big.map((b) => <tr><td>{b.n}</td><td>{b.k}</td></tr>)}</tbody>
+    </table></div>
+    <p>One caveat: Python ints have no size limit, so for truly huge numbers each <code>//</code> itself costs time proportional to the number's length. For anything that fits in a machine word (64 bits) treat each operation as O(1).</p>
+  </section>
+
+  <section class="bn-sec" aria-labelledby="bn-mistakes">
+    <h2 id="bn-mistakes">Common mistakes</h2>
+    <div class="bn-intro">
+      <div class="bn-card">
+        <h3>Forgetting to reverse</h3>
+<pre class="bn-snip bn-bad">return "".join(bits)          # 37 -&gt; "101001"</pre>
+<pre class="bn-snip bn-good">return "".join(reversed(bits)) # 37 -&gt; "100101"</pre>
+        <p>The first remainder is the <em>lowest</em> bit (the 1s place), but we write numbers highest place first. Palindromes like 5 (<code>101</code>) and 9 (<code>1001</code>) hide this bug, so test with something like 6 or 37.</p>
+      </div>
+      <div class="bn-card">
+        <h3>n = 0 returns an empty string</h3>
+<pre class="bn-snip bn-bad">def to_binary(n):
+    bits = []
+    while n &gt; 0:   # never runs for 0
+        ...
+    return "".join(reversed(bits))   # ""</pre>
+<pre class="bn-snip bn-good">    if n == 0:
+        return "0"</pre>
+        <p>The loop stops when n hits 0, so it never produces a digit for 0 itself. Handle it up front. Always test the edges: 0, 1, a power of two and one less than a power of two.</p>
+      </div>
+      <div class="bn-card">
+        <h3>/ instead of //</h3>
+<pre class="bn-snip bn-bad">n = n / 2      # 37 -&gt; 18.5 -&gt; 9.25 -&gt; ...
+               # n % 2 is now 0.5, 1.25, ...</pre>
+<pre class="bn-snip bn-good">n = n // 2     # 37 -&gt; 18 -&gt; 9 -&gt; 4 -&gt; 2 -&gt; 1 -&gt; 0</pre>
+        <p>In Python 3, <code>/</code> always gives a float, so n never drops the bit you just read. The loop keeps halving into tiny fractions for over a thousand rounds (until the float underflows to 0) and the "bits" are junk like <code>'0.5'</code>. Use <code>//</code> or <code>&gt;&gt; 1</code>.</p>
+      </div>
+      <div class="bn-card">
+        <h3>Building the string by prepending</h3>
+<pre class="bn-snip bn-bad">result = ""
+while n &gt; 0:
+    result = str(n % 2) + result   # copies result every time
+    n //= 2</pre>
+<pre class="bn-snip bn-good">bits.append(str(n % 2))          # O(1) each
+...
+return "".join(reversed(bits))   # one pass at the end</pre>
+        <p>Python strings are immutable, so each <code>+</code> builds a brand-new string and copies everything so far: 1 + 2 + … + k characters, O(k²) in total. Appending to a list and joining once is O(k). The prepend version gives the right answer (and skips the reverse), so it is fine for small numbers, but it is the habit to avoid.</p>
+      </div>
+      <div class="bn-card">
+        <h3>Off-by-one place values</h3>
+<pre class="bn-snip bn-bad">for i, bit in enumerate(s):          # i = 0 is the LEFT digit
+    value += int(bit) * 2 ** i       # "110" -&gt; 3, not 6
+for i, bit in enumerate(reversed(s)):
+    value += int(bit) * 2 ** (i + 1) # "110" -&gt; 12, double</pre>
+<pre class="bn-snip bn-good">for i, bit in enumerate(reversed(s)):
+    value += int(bit) * 2 ** i       # "110" -&gt; 6</pre>
+        <p>The rightmost digit is worth 2⁰ = 1, not 2¹. Count i from 0 at the right-hand end. Or skip powers entirely with doubling: <code>value = value * 2 + int(bit)</code>, left to right.</p>
+      </div>
+      <div class="bn-card">
+        <h3>Expecting bin() to show two's complement</h3>
+<pre class="bn-snip bn-bad">bin(-5)                 # '-0b101'  just a minus sign</pre>
+<pre class="bn-snip bn-good">format(-5 &amp; 0xFF, "08b")  # '11111011'  8-bit pattern</pre>
+        <p>Python ints have no fixed width, so there is no "top bit" to make negative. Mask with <code>0xFF</code> (8 bits), <code>0xFFFF</code> (16) and so on to see the pattern a fixed-size register would hold. The last operation in the lab steps through why.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="bn-ref" aria-labelledby="bn-reftitle">
+    <h2 id="bn-reftitle">Reference: operations and built-ins</h2>
+    <div class="bn-tablewrap"><table>
+      <thead><tr><th>Task</th><th>By hand</th><th>Time</th><th>Python built-in</th></tr></thead>
+      <tbody>
+        <tr><td>Decimal → binary string</td><td>repeat n % 2, n //= 2; reverse</td><td>O(log n)</td><td>bin(n)[2:], format(n, "b"), {fstr}</td></tr>
+        <tr><td>Fixed width (pad with 0s)</td><td>to_binary(n).zfill(8)</td><td>O(k)</td><td>format(n, "08b"), {fpad}</td></tr>
+        <tr><td>Binary string → decimal</td><td>sum of bit * 2 ** i, or value * 2 + bit</td><td>O(k)</td><td>int(s, 2)</td></tr>
+        <tr><td>Number of bits</td><td>count the halvings</td><td>O(log n)</td><td>n.bit_length()</td></tr>
+        <tr><td>Count 1 bits</td><td>n &amp;= n - 1 until 0</td><td>O(ones)</td><td>n.bit_count() (3.10+), bin(n).count("1")</td></tr>
+        <tr><td>Power of two?</td><td>n &gt; 0 and n &amp; (n - 1) == 0</td><td>O(1)</td><td></td></tr>
+        <tr><td>Read bit i</td><td>(n &gt;&gt; i) &amp; 1</td><td>O(1)</td><td></td></tr>
+        <tr><td>Set / clear / flip bit i</td><td>n | (1 &lt;&lt; i), n &amp; ~(1 &lt;&lt; i), n ^ (1 &lt;&lt; i)</td><td>O(1)</td><td></td></tr>
+        <tr><td>Lowest 1 bit</td><td>n &amp; -n</td><td>O(1)</td><td></td></tr>
+        <tr><td>8-bit two's complement</td><td>flip the bits of |n|, add 1</td><td>O(bits)</td><td>format(n &amp; 0xFF, "08b")</td></tr>
+        <tr><td>8-bit pattern → signed int</td><td>v − 256 if the top bit is 1</td><td>O(1)</td><td>int.from_bytes(bytes([v]), "big", signed=True)</td></tr>
+      </tbody>
+    </table></div>
+    <p>O(1) here means "one machine operation" for ints that fit in 64 bits. Python's ints grow without limit, so on huge numbers every operation costs time proportional to the number of bits.</p>
+  </section>
+</div>
+
+<script>
+  import './lab.js';
+</script>

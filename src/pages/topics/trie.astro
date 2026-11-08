@@ -1,0 +1,11 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import TrieLab from '../../topics/trie/TrieLab.astro';
+import { getTopic } from '../../data/topics';
+
+const topic = getTopic('trie');
+---
+
+<BaseLayout title={`${topic.title} · RealDSA`} description={topic.summary} crumb={topic.title}>
+  <TrieLab />
+</BaseLayout>

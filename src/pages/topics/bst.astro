@@ -1,0 +1,11 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import BstLab from '../../topics/bst/BstLab.astro';
+import { getTopic } from '../../data/topics';
+
+const topic = getTopic('bst');
+---
+
+<BaseLayout title={`${topic.title} · RealDSA`} description={topic.summary} crumb={topic.title}>
+  <BstLab />
+</BaseLayout>

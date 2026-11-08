@@ -1,0 +1,289 @@
+---
+// The interactive lab: markup here, behaviour in lab.js, styles in lab.css.
+// Styles are global (not scoped) because lab.js creates most of the DOM at runtime.
+import './lab.css';
+import { url } from '../../lib/url';
+import { GRAPHS, dijkstraSteps, edges, verts } from './lab.js';
+
+// Python snippets live here as strings so Astro does not read their braces as expressions.
+const graphSnip = `graph = {
+    'A': [('B', 4), ('C', 1)],
+    'B': [('D', 1)],
+    'C': [('B', 2), ('D', 5), ('E', 8)],
+    'D': [('E', 3), ('F', 6)],
+    'E': [('F', 1)],
+    'F': [],
+}
+dist, prev = dijkstra(graph, 'A')`;
+const greedySnip = `# repeat until nothing is left:
+#   u = the unfinished vertex with the smallest dist
+#   u is now final
+#   try to improve u's neighbours through u`;
+const relaxSnip = `nd = dist[u] + w      # route to v through u
+if nd < dist[v]:      # better than the best so far?
+    dist[v] = nd
+    prev[v] = u       # remember how we got here`;
+const heapSnip = `pq = []
+heapq.heappush(pq, (4, 'B'))
+heapq.heappush(pq, (1, 'C'))
+heapq.heappop(pq)     # (1, 'C'): smallest d first`;
+
+const visitedBug = `visited = {source}
+while pq:
+    d, u = heapq.heappop(pq)
+    for v, w in graph[u]:
+        if v not in visited:
+            visited.add(v)       # locked in at the FIRST route
+            dist[v] = d + w
+            prev[v] = u
+            heapq.heappush(pq, (dist[v], v))`;
+const visitedFix = `done = set()
+while pq:
+    d, u = heapq.heappop(pq)
+    if u in done:                # same job as d > dist[u]
+        continue
+    done.add(u)                  # final only when popped
+    for v, w in graph[u]:
+        nd = d + w
+        if nd < dist[v]:
+            ...`;
+const staleBug = `while pq:
+    d, u = heapq.heappop(pq)
+    # no stale check here
+    for v, w in graph[u]:        # re-runs for every old entry
+        ...`;
+const staleFix = `    if d > dist[u]:
+        continue`;
+const listBug = `pq = [(0, source)]
+while pq:
+    d, u = min(pq)               # O(len(pq)) scan
+    pq.remove((d, u))            # and another one
+    ...`;
+const listFix = `    d, u = heapq.heappop(pq)     # O(log V)`;
+const negBug = `neg = {'A': [('B', 4), ('C', 2)],
+       'B': [('C', -3)],
+       'C': []}
+dijkstra(neg, 'A')   # pops C at 2 before B is seen`;
+const bfSnip = `def bellman_ford(graph, source):
+    dist = {v: float('inf') for v in graph}
+    dist[source] = 0
+    for _ in range(len(graph) - 1):
+        for u in graph:
+            for v, w in graph[u]:
+                if dist[u] + w < dist[v]:
+                    dist[v] = dist[u] + w
+    return dist`;
+
+// Numbers quoted below come from running the lab's own simulator, so they cannot drift.
+const runs = [
+  { label: 'graph from A (Run Dijkstra)', G: GRAPHS.main, s: 'A' },
+  { label: 'small from S (Stale entries)', G: GRAPHS.stale, s: 'S' },
+  { label: 'neg from A (Negative edge)', G: GRAPHS.neg, s: 'A' },
+].map((x) => {
+  const r = dijkstraSteps(x.G, x.s, { quiet: true });
+  const wasted = r.steps.filter((st) => st.poppedStale).reduce((a, st) => a + x.G.adj[st.popped[1]].length, 0);
+  return { ...x, V: verts(x.G).length, E: edges(x.G).length, ...r.stats, wasted, dist: r.dist };
+});
+const main = runs[0];
+// The "visited when pushed" bug on the main graph, simulated directly.
+function visitedOnPush(G: typeof GRAPHS.main, s: string) {
+  const dist: Record<string, number> = {}; for (const v of verts(G)) dist[v] = Infinity; dist[s] = 0;
+  const seen = new Set([s]); const pq: [number, string][] = [[0, s]];
+  while (pq.length) {
+    pq.sort((a, b) => a[0] - b[0] || (a[1] < b[1] ? -1 : 1));
+    const [d, u] = pq.shift()!;
+    for (const [v, w] of G.adj[u as keyof typeof G.adj] as [string, number][]) {
+      if (!seen.has(v)) { seen.add(v); dist[v] = d + w; pq.push([dist[v], v]); }
+    }
+  }
+  return dist;
+}
+const bugDist = visitedOnPush(GRAPHS.main, 'A');
+const wrong = verts(GRAPHS.main).filter((v) => bugDist[v] !== main.dist[v]);
+const fmtList = (vs: string[], d: Record<string, number>) => vs.map((v) => `${v} = ${d[v]}`).join(', ');
+---
+
+<div class="wrap dj-root">
+  <header class="dj-head">
+    <p class="eyebrow">Graph algorithms in Python</p>
+    <h1>Dijkstra's Algorithm Lab</h1>
+    <p class="lede">Shortest paths from one vertex to every other, with a min heap doing the hard part. Step through the code and watch the priority queue, the distance table and each edge relaxation change together.</p>
+  </header>
+
+  <section class="dj-intro" aria-label="Building blocks">
+    <div class="dj-card">
+      <h3>The problem: single-source shortest paths</h3>
+<pre class="dj-snip">{graphSnip}</pre>
+      <p>Each vertex lists <code>(neighbour, weight)</code> pairs. From one <b>source</b>, find the cheapest total weight to every vertex (<code>dist</code>) and the vertex just before it on that route (<code>prev</code>). Weights must be <b>non-negative</b>: distances, times, costs.</p>
+    </div>
+    <div class="dj-card">
+      <h3>The greedy idea</h3>
+<pre class="dj-snip">{greedySnip}</pre>
+      <p>The unfinished vertex with the smallest tentative distance can't be improved later: any other route to it has to leave through a vertex that is already at least as far away, and with weights ≥ 0 a detour can only add. So it is safe to lock it in.</p>
+    </div>
+    <div class="dj-card">
+      <h3>Relaxation: try a shortcut</h3>
+<pre class="dj-snip">{relaxSnip}</pre>
+      <p>When u becomes final, each edge u → v asks one question: is going through u cheaper than the best route to v found so far? If yes, <code>dist[v]</code> drops and <code>prev[v]</code> points back at u. That is the whole update step.</p>
+    </div>
+    <div class="dj-card">
+      <h3>Why a min heap</h3>
+<pre class="dj-snip">{heapSnip}</pre>
+      <p>"Smallest unfinished dist" is a min query, and <code>heapq</code> is a min heap (see the <a href={url('/topics/heap/')}>Heap Lab</a>): push and pop are O(log n). Tuples compare by their first item, so <code>(d, v)</code> pops by distance. heapq can't lower an entry already inside, so the code pushes a new one and skips the old one later.</p>
+    </div>
+    <div class="dj-readhow">
+      <span><svg width="22" height="22" aria-hidden="true"><circle cx="11" cy="11" r="8" class="dj-lg dj-lg-un"/></svg>not reached (dist ∞)</span>
+      <span><svg width="22" height="22" aria-hidden="true"><circle cx="11" cy="11" r="8" class="dj-lg dj-lg-queue"/></svg>reached, waiting in pq</span>
+      <span><svg width="22" height="22" aria-hidden="true"><circle cx="11" cy="11" r="8" class="dj-lg dj-lg-done"/></svg>final (popped)</span>
+      <span><svg width="22" height="22" aria-hidden="true"><circle cx="11" cy="11" r="8" class="dj-lg dj-lg-cur"/></svg>u: being processed</span>
+      <span><svg width="22" height="22" aria-hidden="true"><circle cx="11" cy="11" r="6" class="dj-lg dj-lg-un"/><circle cx="11" cy="11" r="10" class="dj-lg-ring"/></svg>source</span>
+      <span><svg width="28" height="10" aria-hidden="true"><line x1="1" y1="5" x2="27" y2="5" class="dj-lg-e dj-lg-rel"/></svg>edge being relaxed (dashed: no improvement)</span>
+      <span><svg width="28" height="10" aria-hidden="true"><line x1="1" y1="5" x2="27" y2="5" class="dj-lg-e dj-lg-tree"/></svg>prev edges: the shortest-path tree</span>
+      <span><s class="dj-lg-stale">(4, 'B')</s>stale pq entry</span>
+    </div>
+  </section>
+
+  <section class="dj-lab" aria-label="Interactive lab">
+    <div class="dj-pickers">
+      <div class="dj-ops" id="dj-ops" role="group" aria-label="Operation"></div>
+      <div class="dj-vpick" id="dj-vpick">
+        <div class="dj-vrow" id="dj-src-row"><span class="dj-vlab" id="dj-src-lab">Source</span><div class="dj-seg" id="dj-src" role="group" aria-labelledby="dj-src-lab"></div></div>
+        <div class="dj-vrow" id="dj-tgt-row" hidden><span class="dj-vlab" id="dj-tgt-lab">Target</span><div class="dj-seg" id="dj-tgt" role="group" aria-labelledby="dj-tgt-lab"></div></div>
+      </div>
+    </div>
+
+    <div class="dj-bench">
+      <div class="dj-benchhead">
+        <span class="dj-call" id="dj-call"></span><span class="dj-badge" id="dj-big"></span>
+        <span class="dj-sum" id="dj-sum"></span>
+      </div>
+      <div class="dj-stage" id="dj-stage">
+        <div class="dj-views">
+          <figure class="dj-view dj-view-draw">
+            <figcaption class="dj-vlabel">Graph <span>number under each vertex = dist</span></figcaption>
+            <svg id="dj-svg" viewBox="0 0 480 288" role="img" aria-label="Weighted directed graph">
+              <defs>
+                <marker id="dj-mk" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--muted)"/></marker>
+                <marker id="dj-mk-hl" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4.5" markerHeight="4.5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--hl)"/></marker>
+                <marker id="dj-mk-ptr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4.5" markerHeight="4.5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--ptr)"/></marker>
+              </defs>
+              <g id="dj-layer"></g>
+            </svg>
+            <p class="dj-tryhint" id="dj-tryhint" hidden></p>
+          </figure>
+          <div class="dj-side">
+            <figure class="dj-view">
+              <figcaption class="dj-vlabel"><code>dist</code> and <code>prev</code></figcaption>
+              <div class="dj-table" id="dj-table"></div>
+            </figure>
+            <figure class="dj-view">
+              <figcaption class="dj-vlabel" id="dj-aux-label">pq</figcaption>
+              <div class="dj-aux" id="dj-aux"></div>
+            </figure>
+          </div>
+        </div>
+      </div>
+      <div class="dj-lower">
+        <div class="dj-code" id="dj-code" aria-label="Python code"></div>
+        <div class="dj-narr">
+          <div class="dj-stepno" id="dj-stepno"></div>
+          <p id="dj-narr" aria-live="polite"></p>
+          <div class="dj-vars" id="dj-vars" aria-label="Variables"></div>
+        </div>
+      </div>
+      <div class="dj-controls">
+        <button type="button" class="dj-btn" id="dj-prev">← Back</button>
+        <button type="button" class="dj-btn dj-primary" id="dj-next">Next step →</button>
+        <button type="button" class="dj-btn" id="dj-play" aria-pressed="false">▶ Play</button>
+        <button type="button" class="dj-btn" id="dj-reset">Restart</button>
+        <div class="dj-dots" id="dj-dots" role="group" aria-label="Steps"></div>
+      </div>
+      <p class="dj-hint">Tip: the ← and → keys step too.</p>
+    </div>
+  </section>
+
+  <section class="dj-sec" aria-labelledby="dj-cost">
+    <h2 id="dj-cost">Why it costs O((V + E) log V)</h2>
+    <p>Count the work by what each line can do in total, not per loop turn:</p>
+    <ul class="dj-list">
+      <li><b>Each vertex is processed once.</b> The stale check lets only one entry per vertex through, so <code>for v, w in graph[u]</code> runs once per vertex and checks every edge exactly once overall: E checks.</li>
+      <li><b>Each edge can push at most once.</b> A push only happens on a successful relaxation, so pq receives at most E + 1 entries (the +1 is the source).</li>
+      <li><b>Every entry is popped at most once</b>, stale or not, so there are at most E + 1 pops too.</li>
+      <li><b>Each push or pop costs O(log(heap size))</b>, and the heap never holds more than E + 1 entries. Since E ≤ V², log E ≤ 2 log V, which is O(log V).</li>
+    </ul>
+    <p>Add it up: O(V) to set up <code>dist</code> and <code>prev</code>, O(E) edge checks, and O(E) heap operations at O(log V) each: <b>O((V + E) log V)</b>, often written O(E log V) when every vertex is reachable. Space is O(V + E): the two dicts plus up to E + 1 heap entries.</p>
+    <div class="dj-tablewrap"><table class="dj-t">
+      <caption>Counts measured by the lab</caption>
+      <thead><tr><th>Run</th><th>V</th><th>E</th><th>Pushes</th><th>Pops</th><th>Stale pops</th><th>Edge checks</th></tr></thead>
+      <tbody>
+        {runs.map((r) => (
+          <tr><td>{r.label}</td><td>{r.V}</td><td>{r.E}</td><td>{r.pushes}</td><td>{r.pops}</td><td>{r.stale}</td><td>{r.checks}</td></tr>
+        ))}
+      </tbody>
+    </table></div>
+    <p>On the main graph every one of the {main.E} edges improved something, so pq got the maximum E + 1 = {main.pushes} pushes, and {main.stale} of the {main.pops} pops were stale. A heap with a decrease-key operation (a Fibonacci heap) avoids the duplicates and reaches O(E + V log V), but Python's <code>heapq</code> has no decrease-key, and lazy deletion is simpler and fast in practice.</p>
+  </section>
+
+  <section class="dj-sec" aria-labelledby="dj-compare">
+    <h2 id="dj-compare">Dijkstra next to BFS and Bellman-Ford</h2>
+    <div class="dj-tablewrap"><table class="dj-t dj-cmp">
+      <thead><tr><th>Algorithm</th><th>Edge weights</th><th>Frontier</th><th>Time</th><th>Why it works</th></tr></thead>
+      <tbody>
+        <tr><td>BFS</td><td>none (every edge costs 1)</td><td>collections.deque, first in first out</td><td>O(V + E)</td><td>Vertices come out in order of hop count, so the first time you reach a vertex is the shortest. Dijkstra with all weights equal does the same thing, just slower.</td></tr>
+        <tr><td>Dijkstra</td><td>≥ 0</td><td>heapq min heap of (d, v)</td><td>O((V + E) log V)</td><td>Vertices come out in order of distance. A popped vertex is final because detours can only add weight.</td></tr>
+        <tr><td>Bellman-Ford</td><td>any, including negative</td><td>none: relax every edge, V − 1 rounds</td><td>O(V · E)</td><td>After round k every shortest path of k edges is correct. One extra round that still improves something means a negative cycle.</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section class="dj-sec" aria-labelledby="dj-mistakes">
+    <h2 id="dj-mistakes">Common mistakes</h2>
+    <div class="dj-intro">
+      <div class="dj-card">
+        <h3>Marking a vertex visited when it is pushed</h3>
+<pre class="dj-snip dj-bad">{visitedBug}</pre>
+<pre class="dj-snip dj-good">{visitedFix}</pre>
+        <p>This is BFS thinking: the first route found to a vertex is not the cheapest one. On this lab's graph from A, B gets locked at 4 by the direct edge before C finds 1 + 2 = 3, and the error spreads: it returns {fmtList(wrong, bugDist)} instead of {fmtList(wrong, main.dist)}. A vertex is only final when it is <em>popped</em>.</p>
+      </div>
+      <div class="dj-card">
+        <h3>Leaving out the stale check</h3>
+<pre class="dj-snip dj-bad">{staleBug}</pre>
+<pre class="dj-snip dj-good">{staleFix}</pre>
+        <p>With non-negative weights the answer is still right: an old entry has d &gt; dist[u], so <code>d + w</code> can't beat what u's earlier, smaller pop already set. But every stale pop re-scans all of u's edges ({main.wasted} wasted edge checks on the main graph, on top of {main.checks}), and on a graph with many improvements into a high-degree vertex that work multiplies. A <code>done</code> set checked at pop time does the same job.</p>
+      </div>
+      <div class="dj-card">
+        <h3>A plain list and <code>min()</code></h3>
+<pre class="dj-snip dj-bad">{listBug}</pre>
+<pre class="dj-snip dj-good">{listFix}</pre>
+        <p>Correct, but every pop scans the whole list instead of costing O(log V). The classic array version (scan all V vertices for the smallest unfinished dist) is O(V²): fine for a dense graph where E is close to V², far slower than the heap on the sparse graphs you usually meet.</p>
+      </div>
+      <div class="dj-card">
+        <h3>Negative weights</h3>
+<pre class="dj-snip dj-bad">{negBug}</pre>
+<pre class="dj-snip dj-good">{bfSnip}</pre>
+        <p>The greedy step finalises C at 2, but A → B → C costs 4 − 3 = 1. The lazy code on this page happens to recover by popping C twice (step through <b>Negative edge</b> above), but then a vertex can be processed many times, the time bound is gone, and a negative cycle never ends. Use Bellman-Ford when any weight is negative.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="dj-sec dj-ref">
+    <h2>Cost of each piece</h2>
+    <div class="dj-tablewrap"><table class="dj-t">
+      <thead><tr><th>Piece</th><th>Time</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>Set up dist and prev</td><td>O(V)</td><td>one entry per vertex</td></tr>
+        <tr><td>heappush / heappop</td><td>O(log V)</td><td>sift up / down a heap of at most E + 1 entries</td></tr>
+        <tr><td>Stale check</td><td>O(1)</td><td>one comparison, then continue</td></tr>
+        <tr><td>All relaxations</td><td>O(E)</td><td>each edge checked once, when its tail is popped</td></tr>
+        <tr><td>Whole run</td><td>O((V + E) log V)</td><td>at most E + 1 pushes and pops</td></tr>
+        <tr><td>Rebuild one path from prev</td><td>O(V)</td><td>one step per vertex on the path</td></tr>
+        <tr><td>Space</td><td>O(V + E)</td><td>dist, prev and the heap</td></tr>
+      </tbody>
+    </table></div>
+    <p>Only need one target? Return as soon as it is popped (<code>if u == target: return d</code>): its distance is final at that moment. Same worst case, often much less work.</p>
+  </section>
+</div>
+
+<script>
+  import './lab.js';
+</script>

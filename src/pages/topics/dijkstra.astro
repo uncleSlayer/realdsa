@@ -1,0 +1,11 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import DijkstraLab from '../../topics/dijkstra/DijkstraLab.astro';
+import { getTopic } from '../../data/topics';
+
+const topic = getTopic('dijkstra');
+---
+
+<BaseLayout title={`${topic.title} · RealDSA`} description={topic.summary} crumb={topic.title}>
+  <DijkstraLab />
+</BaseLayout>

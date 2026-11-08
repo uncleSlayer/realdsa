@@ -39,6 +39,38 @@ export const topics: Topic[] = [
     language: 'Python',
     tags: ['Traverse', 'Prepend', 'Append', 'Insert', 'Remove', 'Find', 'Reverse', 'Pop'],
   },
+  {
+    slug: 'dijkstra',
+    title: "Dijkstra's Algorithm Lab",
+    summary:
+      'Watch Dijkstra find the shortest path from one vertex to every other: the priority queue, the distance table and each edge relaxation, one step at a time.',
+    language: 'Python',
+    tags: ['Shortest path', 'heapq', 'Relaxation', 'Path rebuild', 'Negative edges'],
+  },
+  {
+    slug: 'bst',
+    title: 'Binary Search Tree Lab',
+    summary:
+      'Code a BST from scratch: insert, search and delete, the three depth-first traversals, and the max height of the tree.',
+    language: 'Python',
+    tags: ['Insert', 'Search', 'Delete', 'Preorder', 'Inorder', 'Postorder', 'Max height'],
+  },
+  {
+    slug: 'trie',
+    title: 'Trie Lab',
+    summary:
+      'Store words letter by letter in a prefix tree. Step through insert, search and prefix lookup, then match words with wildcards.',
+    language: 'Python',
+    tags: ['Insert', 'Search', 'Starts with', 'Word matcher', 'Autocomplete'],
+  },
+  {
+    slug: 'binary',
+    title: 'Binary Numbers Lab',
+    summary:
+      'See how a number becomes binary: divide by two and read the remainders, place values, converting back, and the bit operators that do it fast.',
+    language: 'Python',
+    tags: ['Decimal to binary', 'Binary to decimal', 'Bit shifts', 'Bitwise AND/OR'],
+  },
 ];
 
 export function getTopic(slug: string): Topic {

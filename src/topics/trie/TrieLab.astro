@@ -1,0 +1,263 @@
+---
+// The interactive lab: markup here, behaviour in lab.js, styles in lab.css.
+// Styles are global (not scoped) because lab.js creates most of the DOM at runtime.
+// Python snippets live in strings here because their dict braces would otherwise be read as Astro expressions.
+import './lab.css';
+
+const snip = {
+  why: `words = ["car", "card", "care", "cat", "dog", "do"]
+
+"card" in set(words)   # fast, but only whole words
+# "which words start with 'ca'?"
+[w for w in words if w.startswith("ca")]  # checks all n`,
+  node: `class TrieNode:
+    def __init__(self):
+        self.children = {}   # char -> TrieNode
+        self.is_end = False  # does a word stop here?
+
+class Trie:
+    def __init__(self):
+        self.root = TrieNode()`,
+  end: `trie.insert("card")
+trie.search("car")   # path c-a-r exists...
+                     # ...but no word ends there: False
+trie.insert("car")   # creates no nodes at all,
+                     # only sets is_end = True`,
+  slots: `# dict: only the letters that exist
+self.children = {}
+child = self.children.get(ch)
+
+# list: one slot per letter a-z
+self.children = [None] * 26
+child = self.children[ord(ch) - ord("a")]`,
+  bugEnd: `def insert(self, word):
+    node = self.root
+    for ch in word:
+        if ch not in node.children:
+            node.children[ch] = TrieNode()
+        node = node.children[ch]
+    # forgot: node.is_end = True`,
+  bugPrefix: `def search(self, word):
+    node = self.root
+    for ch in word:
+        if ch not in node.children:
+            return False
+        node = node.children[ch]
+    return True   # search("ca") -> True`,
+  fixPrefix: `    return node.is_end`,
+  bugDot: `if ch == '.':
+    if i == len(pattern) - 1:
+        return len(node.children) > 0
+# only "card" stored: match("ca.") -> True`,
+  fixDot: `if ch == '.':
+    for child in node.children.values():
+        if dfs(child, i + 1):   # the base case
+            return True         # checks is_end
+    return False`,
+  bugCreate: `def search(self, word):
+    node = self.root
+    for ch in word:
+        node = node.children.setdefault(ch, TrieNode())
+    return node.is_end
+# search("cab") adds 'b'; later
+# starts_with("cab") -> True`,
+  fixCreate: `        if ch not in node.children:
+            return False   # read only, never build`,
+  auto: `def autocomplete(self, prefix):
+    node = self.root
+    for ch in prefix:          # O(len(prefix))
+        if ch not in node.children:
+            return []
+        node = node.children[ch]
+    words = []
+    def collect(node, path):   # O(size of subtree)
+        if node.is_end:
+            words.append(path)
+        for ch, child in node.children.items():
+            collect(child, path + ch)
+    collect(node, prefix)
+    return words`,
+};
+---
+
+<div class="wrap tr-root">
+  <header class="tr-head">
+    <p class="eyebrow">Data structures in Python</p>
+    <h1>Trie Lab</h1>
+    <p class="lede">A trie, or prefix tree, stores words one letter per edge, so words that start the same share the same path. Step through insert, search, prefix lookup, wildcard matching and delete, and watch the walk down the tree one line of Python at a time.</p>
+  </header>
+
+  <section class="tr-intro" aria-label="Building blocks">
+    <div class="tr-card">
+      <h3>Why a trie?</h3>
+      <pre class="tr-snip">{snip.why}</pre>
+      <p>A trie stores each shared prefix once: "car", "card", "care" and "cat" all hang off the same <code>c → a</code> path. A lookup follows one edge per letter, so it costs O(L) for a word of length L, whether the trie holds six words or six million. And "every word starting with ca" is just everything below one node.</p>
+    </div>
+    <div class="tr-card">
+      <h3>A node is a dict and a flag</h3>
+      <pre class="tr-snip">{snip.node}</pre>
+      <p>A node does not store its own letter. The letter is the <em>key</em> its parent files it under, which is why the drawing puts letters on the edges. The root is an empty node that every word starts from.</p>
+    </div>
+    <div class="tr-card">
+      <h3>Why <code>is_end</code> is needed</h3>
+      <pre class="tr-snip">{snip.end}</pre>
+      <p>"car" lies on the path to "card". The nodes alone cannot say whether "car" was inserted or is only a prefix. <code>is_end</code> marks the nodes where a real word stops; the lab draws them with a double ring and the word beside them.</p>
+    </div>
+    <div class="tr-card">
+      <h3>Children: dict or 26-slot list</h3>
+      <pre class="tr-snip">{snip.slots}</pre>
+      <p>A dict holds only the letters that exist and works for any alphabet, which suits Python and sparse tries. A list of 26 gives a fixed index with no hashing and children already in a–z order, but pays 26 slots per node even when 25 are <code>None</code>. This lab uses the dict.</p>
+    </div>
+    <div class="tr-readhow" style="grid-column:1/-1">
+      <span><svg width="22" height="22" aria-hidden="true"><circle cx="11" cy="11" r="9" class="tr-lg-plain"/></svg>a node</span>
+      <span><svg width="22" height="22" aria-hidden="true"><circle cx="11" cy="11" r="9" class="tr-lg-end"/><circle cx="11" cy="11" r="5" class="tr-lg-ring"/></svg>is_end = True: a word stops here</span>
+      <span><svg width="22" height="22" aria-hidden="true"><circle cx="11" cy="11" r="9" class="tr-lg-cur"/></svg>where <code>node</code> is now</span>
+      <span><svg width="30" height="12" aria-hidden="true"><line x1="1" y1="6" x2="29" y2="6" class="tr-lg-path"/></svg>path from the root</span>
+      <span><svg width="22" height="22" aria-hidden="true"><circle cx="11" cy="11" r="9" class="tr-lg-dead"/><text x="11" y="15" class="tr-lg-x">✕</text></svg>dead end: tried and failed</span>
+      <span><svg width="22" height="22" aria-hidden="true"><circle cx="11" cy="11" r="8" class="tr-lg-miss"/></svg>a child that is not there</span>
+      <span><svg width="22" height="22" aria-hidden="true"><circle cx="11" cy="11" r="9" class="tr-lg-hit"/></svg>found / collected</span>
+    </div>
+  </section>
+
+  <section class="tr-lab" aria-label="Interactive lab">
+    <div class="tr-pickers">
+      <div class="tr-ops" id="tr-ops" role="group" aria-label="Operation"></div>
+      <form class="tr-custom" id="tr-custom" novalidate hidden>
+        <div class="tr-row">
+          <label for="tr-in" id="tr-in-label">Word</label>
+          <input id="tr-in" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="20" aria-describedby="tr-err tr-rule" />
+          <button type="submit" class="tr-btn">Run it</button>
+        </div>
+        <div class="tr-row tr-exrow">
+          <span class="tr-trylab">Try</span>
+          <div class="tr-ex" id="tr-ex" role="group" aria-label="Examples"></div>
+        </div>
+        <p class="tr-rule" id="tr-rule">Lowercase a–z, up to 8 characters. In the word matcher, "." stands for any one letter.</p>
+        <p class="tr-err" id="tr-err" role="alert"></p>
+      </form>
+    </div>
+
+    <div class="tr-bench">
+      <div class="tr-benchhead">
+        <span class="tr-call" id="tr-call"></span><span class="tr-badge" id="tr-big"></span>
+        <span class="tr-sum" id="tr-sum"></span>
+      </div>
+      <div class="tr-stagewrap"><svg id="tr-stage" role="img" aria-label="Trie drawing">
+        <g id="tr-layer"></g>
+      </svg></div>
+      <div class="tr-lower">
+        <div class="tr-code" id="tr-code" aria-label="Python code"></div>
+        <div class="tr-narr">
+          <div class="tr-stepno" id="tr-stepno"></div>
+          <p id="tr-narr" aria-live="polite"></p>
+          <div class="tr-vars" id="tr-vars" aria-label="Variables"></div>
+        </div>
+      </div>
+      <div class="tr-controls">
+        <button type="button" class="tr-btn" id="tr-prev">← Back</button>
+        <button type="button" class="tr-btn tr-primary" id="tr-next">Next step →</button>
+        <button type="button" class="tr-btn" id="tr-play" aria-pressed="false">▶ Play</button>
+        <button type="button" class="tr-btn" id="tr-reset">Restart</button>
+        <div class="tr-dots" id="tr-dots" role="group" aria-label="Steps"></div>
+      </div>
+      <p class="tr-hint">Tip: the ← and → keys step too. Every operation except Insert and Build starts from the same six words: car, card, care, cat, dog, do.</p>
+    </div>
+  </section>
+
+  <section class="tr-sec" aria-labelledby="tr-matcher">
+    <h2 id="tr-matcher">The word matcher: "." means any one letter</h2>
+    <p class="tr-note">Here "word matcher" means wildcard search, as in LeetCode 211 (Add and Search Word): <code>match("c.r")</code> is True if some stored word has exactly three letters, a c, any letter, then an r.</p>
+    <p>A plain letter leaves exactly one child to follow, so it behaves like <code>search</code>. A <code>.</code> could be any child, so <code>dfs</code> tries them one by one. If a child's call returns False, that branch is a dead end: the call returns, its frame leaves the stack, and the loop moves on to the next child. That return-and-try-the-next is <strong>backtracking</strong>. The first branch that reaches the end of the pattern on a node with <code>is_end = True</code> makes every waiting call return True at once.</p>
+    <p>The length check comes for free: a branch that runs out of pattern on a node that is not a word end fails, and a branch that runs out of tree before the pattern ends fails too. Run <code>.o</code> to see a dead end before the hit, or <code>d.t</code> to watch every branch fail.</p>
+  </section>
+
+  <section class="tr-sec" aria-labelledby="tr-cost">
+    <h2 id="tr-cost">How much it costs</h2>
+    <div class="tr-intro">
+      <div class="tr-card">
+        <h3>Insert, search, starts_with: O(L)</h3>
+        <p>Each does one dict lookup per letter and nothing else, so the work is the length of the word, L. The number of stored words, n, never appears. A hash set also checks a word in O(L) on average, since hashing a string reads every character, but it cannot answer prefix questions without scanning all n words.</p>
+      </div>
+      <div class="tr-card">
+        <h3>Word matcher: O(26<sup>k</sup> · L) worst case</h3>
+        <p>Each <code>.</code> can fan out to as many as 26 children, and every one of those branches can meet more dots further down. With k dots that is up to 26<sup>k</sup> branches, each walking up to L levels. In practice two things keep it far smaller: branches die as soon as a letter is missing, and every node is visited at most once per call, because a node at depth d is only ever reached with i = d. So the work is also capped by the number of nodes in the trie.</p>
+      </div>
+      <div class="tr-card">
+        <h3>Space: one node per distinct prefix</h3>
+        <p>The worst case is the total number of letters across all words, when no prefixes are shared. Sharing brings it down; the six words in this lab have 19 letters but need only 9 nodes. Each node is an object with its own dict, though, which in CPython costs on the order of 100–200 bytes, so a trie of short words often uses <em>more</em> memory than a plain set of strings.</p>
+      </div>
+      <div class="tr-card">
+        <h3>Autocomplete: O(L + size of the subtree)</h3>
+        <pre class="tr-snip">{snip.auto}</pre>
+        <p>Walking to the prefix costs O(L); collecting visits every node below it once. Words outside the prefix are never touched, which is the whole point.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="tr-sec" aria-labelledby="tr-when">
+    <h2 id="tr-when">When to use a trie, and when a set is enough</h2>
+    <div class="tr-tablewrap"><table>
+      <thead><tr><th>You need</th><th>Use</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>Is this exact word stored?</td><td>set</td><td>O(L) average, less memory, one line of Python</td></tr>
+        <tr><td>Autocomplete / type-ahead</td><td>trie</td><td>walk to the prefix node, then collect its subtree</td></tr>
+        <tr><td>Does any word start with this prefix?</td><td>trie</td><td>starts_with is O(L); a set must scan every word</td></tr>
+        <tr><td>Wildcard patterns ("c.t")</td><td>trie</td><td>DFS prunes whole subtrees at the first missing letter</td></tr>
+        <tr><td>Word games (Boggle, word search grids)</td><td>trie</td><td>stop exploring a path as soon as no word has that prefix</td></tr>
+        <tr><td>Spell-check suggestions</td><td>trie</td><td>search nearby spellings while walking shared prefixes once</td></tr>
+        <tr><td>Longest common prefix of many words</td><td>trie</td><td>follow the root while there is exactly one child and no word end</td></tr>
+        <tr><td>Count words, sort them</td><td>list / sorted()</td><td>a trie gives sorted order only with ordered children</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section class="tr-sec" aria-labelledby="tr-mistakes">
+    <h2 id="tr-mistakes">Common mistakes</h2>
+    <div class="tr-intro">
+      <div class="tr-card">
+        <h3>Forgetting <code>is_end</code> in insert</h3>
+        <pre class="tr-snip tr-bad">{snip.bugEnd}</pre>
+        <p>The nodes get built, so starts_with still works, but no node is ever marked as a word end. Every search returns False, even for the word you just inserted. Insert's last line is the one that records the word.</p>
+      </div>
+      <div class="tr-card">
+        <h3>Search that returns True for a prefix</h3>
+        <pre class="tr-snip tr-bad">{snip.bugPrefix}</pre>
+        <pre class="tr-snip tr-good">{snip.fixPrefix}</pre>
+        <p>That is starts_with, not search. With "card" stored, the path c-a exists, so the buggy version claims "ca" is a word. Run Search with <code>ca</code> above to see is_end decide.</p>
+      </div>
+      <div class="tr-card">
+        <h3>Special-casing "." at the last position</h3>
+        <pre class="tr-snip tr-bad">{snip.bugDot}</pre>
+        <pre class="tr-snip tr-good">{snip.fixDot}</pre>
+        <p>Having a child is not the same as having a word: the child must be a word end. Let the dot recurse like every other position, and the <code>i == len(pattern)</code> base case checks <code>is_end</code> for you. Try <code>ca.</code> in the matcher.</p>
+      </div>
+      <div class="tr-card">
+        <h3>Creating nodes during search</h3>
+        <pre class="tr-snip tr-bad">{snip.bugCreate}</pre>
+        <pre class="tr-snip tr-good">{snip.fixCreate}</pre>
+        <p><code>setdefault</code> (or a <code>defaultdict</code>) quietly builds the path it was asked about. search still says False, but the junk nodes make starts_with lie afterwards and the trie grows with every miss. Lookups must only read.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="tr-ref">
+    <h2>Cost of each operation</h2>
+    <div class="tr-tablewrap"><table>
+      <thead><tr><th>Operation</th><th>Time</th><th>Extra space</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>insert(word)</td><td>O(L)</td><td>O(L) new nodes at most</td><td>reuses every node of the shared prefix</td></tr>
+        <tr><td>search(word)</td><td>O(L)</td><td>O(1)</td><td>answer is the last node's is_end</td></tr>
+        <tr><td>starts_with(prefix)</td><td>O(L)</td><td>O(1)</td><td>True as soon as the path exists</td></tr>
+        <tr><td>match(pattern) with k dots</td><td>O(26<sup>k</sup> · L) worst</td><td>O(L) call stack</td><td>also at most one visit per node</td></tr>
+        <tr><td>autocomplete(prefix)</td><td>O(L + m)</td><td>O(depth) stack + output</td><td>m = nodes under the prefix node</td></tr>
+        <tr><td>delete(word)</td><td>O(L)</td><td>O(L) call stack</td><td>unmark is_end, prune childless non-word nodes</td></tr>
+        <tr><td>Build from n words</td><td>O(total letters)</td><td>O(total letters) worst</td><td>shared prefixes are stored once</td></tr>
+      </tbody>
+    </table></div>
+    <p>L is the length of the word, prefix or pattern. With a 26-slot list instead of a dict, each step is a list index instead of a hash lookup, and each node always costs 26 slots.</p>
+  </section>
+</div>
+
+<script>
+  import './lab.js';
+</script>
