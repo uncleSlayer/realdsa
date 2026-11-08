@@ -1,16 +1,16 @@
 ---
 import '../styles/global.css';
 import { url } from '../lib/url';
+import { topics } from '../data/topics';
 
 interface Props {
   title: string;
   description: string;
-  /** Shown next to the brand, linking back home. Omit on the home page. */
-  crumb?: string;
 }
 
-const { title, description, crumb } = Astro.props;
+const { title, description } = Astro.props;
 const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : undefined;
+const here = Astro.url.pathname.replace(/\/?$/, '/');
 ---
 
 <!doctype html>
@@ -39,28 +39,50 @@ const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : un
     </script>
   </head>
   <body>
-    <header class="site-bar">
-      <div class="site-bar-in">
-        <a class="site-brand" href={url('/')}><img src={url('/favicon.svg')} alt="" />RealDSA</a>
-        {crumb && <a class="site-crumb" href={url('/')}>/ {crumb}</a>}
-        <span class="site-spacer"></span>
-        <button class="site-theme" id="site-theme" type="button" aria-label="Colour theme">Auto</button>
-      </div>
-    </header>
+    <a class="site-skip" href="#main">Skip to content</a>
 
-    <main>
+    <aside class="site-side" id="site-side">
+      <div class="site-top">
+        <a class="site-brand" href={url('/')}><img src={url('/favicon.svg')} alt="" />RealDSA</a>
+        <button class="site-menu" id="site-menu" type="button" aria-expanded="false" aria-controls="site-panel">Menu</button>
+      </div>
+      <div class="site-panel" id="site-panel">
+        <nav class="site-nav" aria-label="Topics">
+          {
+            topics.map((t) => {
+              const href = url(`/topics/${t.slug}/`);
+              return (
+                <a href={href} aria-current={href === here ? 'page' : undefined}>
+                  {t.title.replace(/ Lab$/, '')}
+                </a>
+              );
+            })
+          }
+        </nav>
+        <button class="site-theme" id="site-theme" type="button">Auto</button>
+      </div>
+    </aside>
+
+    <main id="main">
       <slot />
     </main>
 
-    <footer class="site-foot">
-      <div class="site-bar-in">
-        <span>RealDSA: data structures you can step through.</span>
-        <span class="site-spacer"></span>
-        <a href={url('/')}>All topics</a>
-      </div>
-    </footer>
-
     <script>
+      const side = document.getElementById('site-side')!;
+      const menu = document.getElementById('site-menu')!;
+      const setOpen = (open: boolean) => {
+        side.toggleAttribute('data-open', open);
+        menu.setAttribute('aria-expanded', String(open));
+        menu.textContent = open ? 'Close' : 'Menu';
+      };
+      menu.addEventListener('click', () => setOpen(!side.hasAttribute('data-open')));
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && side.hasAttribute('data-open')) {
+          setOpen(false);
+          menu.focus();
+        }
+      });
+
       const btn = document.getElementById('site-theme')!;
       const order = ['auto', 'light', 'dark'] as const;
       type Mode = (typeof order)[number];
@@ -69,8 +91,7 @@ const canonical = Astro.site ? new URL(Astro.url.pathname, Astro.site).href : un
       const apply = () => {
         if (mode === 'auto') delete document.documentElement.dataset.theme;
         else document.documentElement.dataset.theme = mode;
-        btn.textContent = label[mode];
-        btn.setAttribute('aria-label', `Colour theme: ${label[mode]}`);
+        btn.textContent = `Theme: ${label[mode]}`;
         try {
           if (mode === 'auto') localStorage.removeItem('theme');
           else localStorage.setItem('theme', mode);
