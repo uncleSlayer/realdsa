@@ -1,0 +1,155 @@
+---
+// The interactive lab: markup here, behaviour in lab.js, styles in lab.css.
+// Styles are global (not scoped) because lab.js creates most of the DOM at runtime.
+import './lab.css';
+---
+
+<div class="wrap">
+  <header class="g-head">
+    <p class="eyebrow">Graphs in Python</p>
+    <h1>Graph Representation Lab</h1>
+    <p class="lede">One graph, stored three ways. Step through each operation and watch the drawing, the matrix and the adjacency list change together, one line of Python at a time.</p>
+  </header>
+
+  <section class="g-intro" aria-label="Building blocks">
+    <div class="g-card">
+      <h3>V and E: what a graph is</h3>
+<pre class="g-snip">n = 5          # vertices 0, 1, 2, 3, 4
+edge_list = [(0, 1), (0, 2), (0, 3),
+             (1, 3), (2, 4), (3, 4)]
+is_directed = True</pre>
+      <p><b>V</b> is the set of vertices (nodes), here numbered <code>0</code> to <code>n - 1</code>. <b>E</b> is the set of edges, each a pair <code>(u, v)</code>. Directed: the edge goes one way, u → v. Undirected: it works both ways.</p>
+    </div>
+    <div class="g-card">
+      <h3>Edge list: just the pairs</h3>
+<pre class="g-snip">edge_list = []
+def add_edge(u, v):
+    edge_list.append((u, v))</pre>
+      <p>Exactly what you read from input. Smallest to store, O(E), but nothing is indexed by vertex, so most questions mean scanning every pair.</p>
+    </div>
+    <div class="g-card">
+      <h3>Adjacency matrix: a V × V grid</h3>
+<pre class="g-snip">matrix = [[0] * n for _ in range(n)]
+def add_edge(u, v, is_directed=True):
+    matrix[u][v] = 1
+    if not is_directed:
+        matrix[v][u] = 1</pre>
+      <p><code>matrix[u][v]</code> is 1 when there is an edge from u to v. Any lookup is one index, O(1), but the grid costs V² cells even when most are 0.</p>
+    </div>
+    <div class="g-card">
+      <h3>Adjacency list: each vertex lists its neighbours</h3>
+<pre class="g-snip">from collections import defaultdict
+adj = defaultdict(list)
+def add_edge(u, v, is_directed=True):
+    adj[u].append(v)
+    if not is_directed:
+        adj[v].append(u)</pre>
+      <p><code>adj[u]</code> holds only the vertices u connects to. Space O(V + E), and walking a vertex's neighbours costs exactly its degree.</p>
+    </div>
+    <div class="g-readhow">
+      <span><i class="g-sw" style="background:var(--fg)"></i>an edge</span>
+      <span><svg width="24" height="10" aria-hidden="true"><line x1="1" y1="5" x2="23" y2="5" stroke="currentColor" stroke-width="2" stroke-dasharray="4 3"/></svg>dashed = stored in some structures, not all (half-built or half-removed)</span>
+      <span><i class="g-sw" style="background:var(--hl)"></i>touched by the highlighted line</span>
+      <span><i class="g-sw" style="background:var(--ptr)"></i>being checked, or already checked by a loop</span>
+      <span><b class="g-key-one">1</b> edge &nbsp;<b class="g-key-zero">0</b> no edge</span>
+    </div>
+  </section>
+
+  <section class="g-lab" aria-label="Interactive lab">
+    <div class="g-pickers">
+      <div class="g-seg" role="group" aria-label="Graph type">
+        <button type="button" id="g-directed" data-kind="directed" aria-pressed="true">Directed</button>
+        <button type="button" id="g-undirected" data-kind="undirected" aria-pressed="false">Undirected</button>
+      </div>
+      <div class="g-ops" id="g-ops" role="group" aria-label="Operation"></div>
+    </div>
+
+    <div class="g-bench">
+      <div class="g-benchhead">
+        <span class="g-call" id="g-call"></span><span class="g-badge" id="g-big"></span>
+        <span class="g-sum" id="g-sum"></span>
+      </div>
+      <div class="g-stage" id="g-stage">
+        <div class="g-elrow">
+          <span class="g-vlabel">edge_list</span>
+          <div class="g-chips" id="g-elist" aria-label="Edge list"></div>
+        </div>
+        <div class="g-views">
+          <figure class="g-view g-view-draw">
+            <figcaption class="g-vlabel">Drawing</figcaption>
+            <svg id="g-svg" viewBox="0 0 460 260" role="img" aria-label="Graph drawing">
+              <defs>
+                <marker id="g-mk" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--fg)"/></marker>
+                <marker id="g-mk-hl" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--hl)"/></marker>
+                <marker id="g-mk-ptr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--ptr)"/></marker>
+              </defs>
+              <g id="g-layer"></g>
+            </svg>
+          </figure>
+          <figure class="g-view">
+            <figcaption class="g-vlabel">Adjacency matrix <code>matrix[u][v]</code></figcaption>
+            <div class="g-matrix" id="g-matrix"></div>
+          </figure>
+          <figure class="g-view">
+            <figcaption class="g-vlabel">Adjacency list <code>adj[u]</code></figcaption>
+            <div class="g-adj" id="g-adj"></div>
+          </figure>
+        </div>
+        <p class="g-tryhint" id="g-tryhint" hidden>Click a 0 to add that edge, a 1 to remove it. Diagonal cells are self-loops and are left out.</p>
+      </div>
+      <div class="g-lower">
+        <div class="g-code" id="g-code" aria-label="Python code"></div>
+        <div class="g-narr">
+          <div class="g-stepno" id="g-stepno"></div>
+          <p id="g-narr" aria-live="polite"></p>
+          <div class="g-vars" id="g-vars" aria-label="Variables"></div>
+        </div>
+      </div>
+      <div class="g-controls">
+        <button type="button" class="g-btn" id="g-prev">← Back</button>
+        <button type="button" class="g-btn g-primary" id="g-next">Next step →</button>
+        <button type="button" class="g-btn" id="g-play">▶ Play</button>
+        <button type="button" class="g-btn" id="g-reset">Restart</button>
+        <div class="g-dots" id="g-dots"></div>
+      </div>
+      <p class="g-hint">Tip: the ← and → keys step too.</p>
+    </div>
+  </section>
+
+  <section class="g-ref">
+    <h2>Cost of each operation</h2>
+    <div class="g-tablewrap"><table class="g-table">
+      <thead><tr><th>Operation</th><th>Edge list</th><th>Adjacency matrix</th><th>Adjacency list</th></tr></thead>
+      <tbody>
+        <tr><td>Space</td><td>O(E)</td><td>O(V²)</td><td>O(V + E)</td></tr>
+        <tr><td>Add an edge</td><td>O(1)</td><td>O(1)</td><td>O(1)</td></tr>
+        <tr><td>Remove an edge</td><td>O(E)</td><td>O(1)</td><td>O(deg(u))</td></tr>
+        <tr><td>has_edge(u, v)</td><td>O(E)</td><td>O(1)</td><td>O(deg(u)); O(1) average with sets</td></tr>
+        <tr><td>Iterate neighbours of u</td><td>O(E)</td><td>O(V)</td><td>O(deg(u))</td></tr>
+        <tr><td>Iterate every edge</td><td>O(E)</td><td>O(V²)</td><td>O(V + E)</td></tr>
+        <tr><td>Add a vertex</td><td>O(1)</td><td>O(V) growing Python lists in place; O(V²) if you reallocate</td><td>O(1)</td></tr>
+      </tbody>
+    </table></div>
+
+    <h2>Which one should I use?</h2>
+    <div class="g-advice">
+      <div class="g-card">
+        <h3>Default: adjacency list</h3>
+        <p>Most real graphs are <b>sparse</b>: E is far smaller than V². Roads, friendships, imports between files. BFS, DFS and Dijkstra all walk neighbours, and the list does that in O(deg(u)), so a full traversal is O(V + E).</p>
+      </div>
+      <div class="g-card">
+        <h3>Matrix: small or dense graphs</h3>
+        <p>Use it when E is close to V², when V is small, or when you ask <code>has_edge</code> constantly. Floyd–Warshall works directly on a matrix. Watch the memory: V = 10,000 means 100,000,000 cells. As a Python list of lists that is about 800 MB of references; even 1 byte per cell is 100 MB.</p>
+      </div>
+      <div class="g-card">
+        <h3>Edge list: algorithms that want edges</h3>
+        <p>Keep the pairs when you process edges rather than vertices. Kruskal's algorithm sorts them by weight; Bellman–Ford loops over all of them each round. It is also the usual input format, so you often convert it once at the start.</p>
+      </div>
+    </div>
+    <p>Undirected graphs: the matrix is symmetric, <code>matrix[u][v] == matrix[v][u]</code>, and every edge appears twice in the adjacency list (once in each endpoint's list, 2E entries in total). The edge list stores it once.</p>
+  </section>
+</div>
+
+<script>
+  import './lab.js';
+</script>

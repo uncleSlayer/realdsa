@@ -23,6 +23,22 @@ export const topics: Topic[] = [
     language: 'Python',
     tags: ['Traverse', 'Prepend', 'Append', 'Insert', 'Remove', 'Find', 'Reverse', 'Pop'],
   },
+  {
+    slug: 'graph-representation',
+    title: 'Graph Representation Lab',
+    summary:
+      'Build the same graph as an edge list, an adjacency matrix and an adjacency list, and see what each one costs to store and to query.',
+    language: 'Python',
+    tags: ['Edge list', 'Adjacency matrix', 'Adjacency list', 'Directed', 'Undirected'],
+  },
+  {
+    slug: 'heap',
+    title: 'Heap Lab',
+    summary:
+      'Watch a min heap and a max heap live in one array: insert with sift-up, delete the root with sift-down, and see why heapify is O(n).',
+    language: 'Python',
+    tags: ['Min heap', 'Max heap', 'Insert', 'Delete', 'Heapify'],
+  },
 ];
 
 export function getTopic(slug: string): Topic {

@@ -1,0 +1,239 @@
+---
+// The interactive lab: markup here, behaviour in lab.js, styles in lab.css.
+// Styles are global (not scoped) because lab.js creates most of the DOM at runtime.
+import './lab.css';
+
+// "Why heapify is O(n)" numbers for a full tree of n = 15 (4 levels).
+const levels = [0, 1, 2, 3].map((d) => {
+  const nodes = 2 ** d, height = 3 - d;
+  return { d, nodes, height, heapify: nodes * height, insert: nodes * d };
+});
+const total = (k: 'nodes' | 'heapify' | 'insert') => levels.reduce((a, l) => a + l[k], 0);
+// bar chart geometry
+const CX = 104, CWID = 440, UNIT = CWID / 24, ROWH = 58, CTOP = 14;
+const series = [
+  { key: 'nodes', label: 'nodes on the level', cls: 'h-bar-nodes' },
+  { key: 'heapify', label: 'heapify: max swaps', cls: 'h-bar-heapify' },
+  { key: 'insert', label: 'insert one at a time: max swaps', cls: 'h-bar-insert' },
+] as const;
+---
+
+<div class="wrap h-root">
+  <header class="lab-head">
+    <p class="eyebrow">Data structures in Python</p>
+    <h1>Heap Lab</h1>
+    <p class="lede">A heap is a tree that lives in a plain Python list. Step through insert, delete and heapify and watch the same values move in the tree and in the list at the same time.</p>
+  </header>
+
+  <section class="intro" aria-label="Building blocks">
+    <div class="card">
+      <h3>The heap property</h3>
+<pre class="snip"># min heap: every parent &lt;= its children
+min_heap = [1, 3, 2, 7, 5, 4]
+
+# max heap: every parent &gt;= its children
+max_heap = [10, 7, 9, 3, 5, 4]</pre>
+      <p>So the root, <code>arr[0]</code>, is always the smallest (min heap) or largest (max heap) value. That is the only promise: siblings are in no order, and the list is not sorted.</p>
+    </div>
+    <div class="card">
+      <h3>A complete binary tree, stored in a list</h3>
+<pre class="snip">parent = (i - 1) // 2
+left   = 2 * i + 1
+right  = 2 * i + 2
+# indices n // 2 .. n - 1 are leaves</pre>
+      <p>Levels fill left to right with no gaps, so a node's position alone tells you where its parent and children are. No node objects, no pointers. A heap of n values is only about log₂ n levels tall.</p>
+    </div>
+    <div class="card">
+      <h3>Min vs max: one operator</h3>
+<pre class="snip"># min heap: the smaller value moves up
+if arr[i] &lt; arr[parent]: ...
+
+# max heap: the larger value moves up
+if arr[i] &gt; arr[parent]: ...</pre>
+      <p>Every function in this lab is identical for both kinds except that one comparison. <code>smallest</code> and <code>largest</code> are just variable names. Flip the toggle below and only those lines change.</p>
+    </div>
+    <div class="card">
+      <h3>Two repair moves</h3>
+<pre class="snip">sift_up(arr, i)    # value too good for its spot
+sift_down(arr, i)  # value too poor for its spot</pre>
+      <p>Insert adds at the end and sifts <em>up</em>. Delete moves the last value to the root and sifts <em>down</em>. Heapify sifts down every parent. You will also see <code>sift_down</code> written as <code>shift_down</code>; same function.</p>
+    </div>
+    <div class="readhow" style="grid-column:1/-1">
+      <span><svg width="20" height="20" aria-hidden="true"><circle cx="10" cy="10" r="8" class="h-lg-focus"/></svg>being compared</span>
+      <span><svg width="20" height="20" aria-hidden="true"><circle cx="10" cy="10" r="8" class="h-lg-mover"/></svg>the value being sifted</span>
+      <span><svg width="20" height="20" aria-hidden="true"><circle cx="10" cy="10" r="8" class="h-lg-settled"/></svg>settled: already in heap order</span>
+      <span><svg width="20" height="20" aria-hidden="true"><circle cx="10" cy="10" r="8" class="h-lg-plain"/></svg>not checked yet</span>
+      <span><svg width="34" height="16" aria-hidden="true"><rect x="1" y="1" width="32" height="14" rx="4" class="h-lg-tag"/></svg>index variable (i, parent, left…)</span>
+    </div>
+  </section>
+
+  <section class="lab" aria-label="Interactive lab">
+    <div class="pickers">
+      <div class="seg" id="h-kind" role="group" aria-label="Heap type">
+        <button type="button" data-kind="max" aria-pressed="true">Max heap</button>
+        <button type="button" data-kind="min" aria-pressed="false">Min heap</button>
+      </div>
+      <div class="ops" id="h-ops" role="group" aria-label="Operation"></div>
+      <form class="h-custom" id="h-custom" novalidate hidden>
+        <label for="h-in" id="h-in-label">Value to insert</label>
+        <input id="h-in" type="text" autocomplete="off" spellcheck="false" aria-describedby="h-err" />
+        <button type="submit" class="btn">Run it</button>
+        <button type="button" class="btn" id="h-ex" hidden>Back to example</button>
+        <p class="h-err" id="h-err" role="alert"></p>
+      </form>
+    </div>
+
+    <div class="bench">
+      <div class="benchhead">
+        <span class="call" id="h-call"></span><span class="badge" id="h-big"></span>
+        <span class="sum" id="h-sum"></span>
+      </div>
+      <div class="stagewrap"><svg id="h-stage" role="img" aria-label="Heap drawn as a tree and as a list">
+        <g id="h-layer"></g>
+      </svg></div>
+      <div class="lower">
+        <div class="code" id="h-code" aria-label="Python code"></div>
+        <div class="narr">
+          <div class="stepno" id="h-stepno"></div>
+          <p id="h-narr" aria-live="polite"></p>
+          <div class="vars" id="h-vars" aria-label="Variables"></div>
+        </div>
+      </div>
+      <div class="controls">
+        <button type="button" class="btn" id="h-prev">← Back</button>
+        <button type="button" class="btn primary" id="h-next">Next step →</button>
+        <button type="button" class="btn" id="h-play" aria-pressed="false">▶ Play</button>
+        <button type="button" class="btn" id="h-reset">Restart</button>
+        <div class="h-dots" id="h-dots" role="group" aria-label="Steps"></div>
+      </div>
+      <p class="hint">Tip: the ← and → keys step too. The min heap examples are the max heap ones mirrored, so both take the same steps.</p>
+    </div>
+  </section>
+
+  <section class="h-sec" aria-labelledby="h-mistakes">
+    <h2 id="h-mistakes">Common mistakes</h2>
+    <div class="intro">
+      <div class="card">
+        <h3>Sift-up with no way out</h3>
+<pre class="snip h-bad"># loops forever once the value is in place
+while i &gt; 0:
+    parent = (i - 1) // 2
+    if arr[i] &lt; arr[parent]:
+        arr[i], arr[parent] = arr[parent], arr[i]
+        i = parent</pre>
+<pre class="snip h-good">    else:
+        break   # parent is fine: stop</pre>
+        <p>When the parent is already in order nothing changes, so <code>i</code> stays the same and the loop spins forever. The <code>else: break</code> is not optional.</p>
+      </div>
+      <div class="card">
+        <h3>Delete that crashes or forgets the root</h3>
+<pre class="snip h-bad">def delete_min(arr):
+    arr[0] = arr.pop()  # IndexError if len is 1
+    sift_down(arr, 0)   # old root is lost</pre>
+<pre class="snip h-good">def delete_min(arr):
+    root = arr[0]
+    last = arr.pop()
+    if arr:
+        arr[0] = last
+        sift_down(arr, 0)
+    return root</pre>
+        <p>On a one-value heap, <code>pop()</code> empties the list first, so <code>arr[0] = …</code> has nowhere to write. Save the root before you overwrite it, and return it.</p>
+      </div>
+      <div class="card" style="grid-column:1/-1">
+        <h3>Heapify in the wrong direction</h3>
+<pre class="snip h-bad"># top-down: walks from the root towards the leaves
+for i in range(len(arr) // 2):
+    sift_down(arr, i)
+# [1, 2, 3, 4, 5, 6, 7] -> [3, 5, 7, 4, 2, 6, 1]
+# as a max heap the root should be 7, not 3</pre>
+        <p><code>sift_down(arr, i)</code> only works when both subtrees below <code>i</code> are already heaps. Going bottom-up, from <code>len(arr) // 2 - 1</code> down to 0, makes that true every time. Top-down, a big value deep in the tree climbs at most one level and never reaches the root.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="h-sec" aria-labelledby="h-why">
+    <h2 id="h-why">Why heapify is O(n), not O(n log n)</h2>
+    <p>Heapify calls <code>sift_down</code> about n/2 times, and one sift_down can cost O(log n). Multiplying gives O(n log n), but that bound is loose. A node can only sink as far as its <strong>height</strong>, the number of levels below it, and most nodes have almost nothing below them.</p>
+    <div class="tablewrap"><table>
+      <caption>A full heap of n = 15 values (4 levels)</caption>
+      <thead><tr><th>Level</th><th>Nodes</th><th>Heapify: max swaps each (height)</th><th>Heapify: max total</th><th>Insert one at a time: max swaps each (depth)</th><th>Insert: max total</th></tr></thead>
+      <tbody>
+        {levels.map((l) => (
+          <tr><td>{l.d}{l.d === 0 ? ' (root)' : l.d === 3 ? ' (leaves)' : ''}</td><td>{l.nodes}</td><td>{l.height}</td><td>{l.heapify}</td><td>{l.d}</td><td>{l.insert}</td></tr>
+        ))}
+        <tr class="h-total"><td>Total</td><td>{total('nodes')}</td><td></td><td>{total('heapify')}</td><td></td><td>{total('insert')}</td></tr>
+      </tbody>
+    </table></div>
+
+    <figure class="h-chart">
+      <figcaption>Work per level, n = 15</figcaption>
+      <div class="h-legend" aria-hidden="true">
+        {series.map((s) => <span><i class={'h-key ' + s.cls}></i>{s.label}</span>)}
+      </div>
+      <svg viewBox={`0 0 600 ${CTOP + levels.length * ROWH + 4}`} role="img"
+        aria-label={`Bar chart. Heapify does at most ${total('heapify')} swaps on 15 values and its work is largest near the root where there are few nodes; inserting one at a time does at most ${total('insert')} swaps, most of it on the bottom level where 8 of the 15 nodes live.`}>
+        {levels.map((l, r) => {
+          const y0 = CTOP + r * ROWH;
+          return (
+            <g>
+              <text x="0" y={y0 + 22} class="h-axis">level {l.d}</text>
+              <line x1={CX} x2={CX} y1={y0 - 4} y2={y0 + 46} class="h-base" />
+              {series.map((s, k) => {
+                const v = l[s.key], w = Math.max(v * UNIT, 0);
+                const y = y0 + k * 15;
+                return (
+                  <g>
+                    <title>{`Level ${l.d}, ${s.label}: ${v}`}</title>
+                    {w > 0 && <rect x={CX} y={y} width={w} height="12" rx="2" class={s.cls} />}
+                    <text x={CX + w + 6} y={y + 10} class="h-num">{v}</text>
+                  </g>
+                );
+              })}
+            </g>
+          );
+        })}
+      </svg>
+    </figure>
+
+    <p>Read the table bottom-up. About n/2 nodes are leaves and cost nothing. About n/4 sit one level up and can sink at most 1 level, n/8 can sink 2, and so on. The total is</p>
+    <p class="h-formula">n/4 · 1 + n/8 · 2 + n/16 · 3 + … = n · (1/4 + 2/8 + 3/16 + …) &lt; n</p>
+    <p>The series in brackets adds up to 1, so heapify does fewer than n swaps (and at most two comparisons per swap level), which is O(n). The expensive nodes, the ones that can sink far, are the rare ones near the root.</p>
+    <p>Inserting one at a time flips this around. Each new value lands at the <em>bottom</em> and may climb its full depth, and the bottom is where most nodes are: the 8 leaves alone can cost 3 swaps each. That is about n · log₂ n in total, so building by inserting is O(n log n).</p>
+    <div class="tablewrap"><table class="h-runs">
+      <caption>Counts measured by the lab (max heap inputs shown; the mirrored min heap inputs give the same counts)</caption>
+      <thead><tr><th>Input</th><th>Heapify</th><th>Build by inserting</th></tr></thead>
+      <tbody>
+        <tr><td>The 11-value example<br /><code>[3, 17, 10, 1, 2, 8, 9, 4, 5, 7, 6]</code></td><td>14 comparisons, 5 swaps</td><td>17 comparisons, 8 swaps</td></tr>
+        <tr><td>Worst case, 15 values<br />ascending (max heap) / descending (min heap)</td><td>22 comparisons, 11 swaps</td><td>34 comparisons, 34 swaps</td></tr>
+      </tbody>
+    </table></div>
+    <p>The worst-case run hits both bounds from the table exactly: 11 swaps for heapify, 34 for inserting. Try it: pick Heapify or Build by inserting above and enter <code>1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15</code> with Max heap selected.</p>
+  </section>
+
+  <section class="ref">
+    <h2>Cost of each operation</h2>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Operation</th><th>Time</th><th>How</th><th>Python <code>heapq</code></th></tr></thead>
+      <tbody>
+        <tr><td>Peek at the root</td><td>O(1)</td><td>read <code>arr[0]</code></td><td>h[0]</td></tr>
+        <tr><td>Insert</td><td>O(log n)</td><td>append, then sift up at most one level per swap</td><td>heappush(h, x)</td></tr>
+        <tr><td>Delete the root</td><td>O(log n)</td><td>last value to the root, then sift down</td><td>heappop(h)</td></tr>
+        <tr><td>Heapify (build from a list)</td><td>O(n)</td><td>sift down every parent, bottom-up</td><td>heapify(h)</td></tr>
+        <tr><td>Build by inserting n values</td><td>O(n log n)</td><td>n separate inserts</td><td>n × heappush</td></tr>
+        <tr><td>Search for any value</td><td>O(n)</td><td>heap order says nothing about left vs right, so check everything</td><td>x in h</td></tr>
+        <tr><td>Heap sort</td><td>O(n log n)</td><td>heapify, then delete the root n times; in place with O(1) extra space</td><td>[heappop(h) for _ in range(len(h))]</td></tr>
+      </tbody>
+    </table></div>
+    <p>Python's <code>heapq</code> works on a plain list and is always a <strong>min</strong> heap. For a max heap, the usual trick is to push negated values and negate again on the way out:</p>
+<pre class="snip h-wide">import heapq
+
+h = []
+for x in [10, 7, 9]:
+    heapq.heappush(h, -x)   # store -x
+biggest = -heapq.heappop(h) # 10</pre>
+  </section>
+</div>
+
+<script>
+  import './lab.js';
+</script>

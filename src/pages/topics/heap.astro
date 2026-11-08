@@ -1,0 +1,11 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import HeapLab from '../../topics/heap/HeapLab.astro';
+import { getTopic } from '../../data/topics';
+
+const topic = getTopic('heap');
+---
+
+<BaseLayout title={`${topic.title} · RealDSA`} description={topic.summary} crumb={topic.title}>
+  <HeapLab />
+</BaseLayout>
