@@ -3,6 +3,8 @@
 Interactive labs for learning data structures and algorithms. Each lab runs real code one line at a
 time and draws what that line does to memory.
 
+Credit to [Real DSA](https://realdsa.com/) by Ankush Dharkar, where these topics come from.
+
 Built with [Astro](https://astro.build) as a fully static site: no server, no framework runtime.
 
 ## Run it
