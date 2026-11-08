@@ -16,14 +16,6 @@ export interface Topic {
 
 export const topics: Topic[] = [
   {
-    slug: 'linked-list',
-    title: 'Linked List Lab',
-    summary:
-      'Step through singly and doubly linked list operations line by line and watch exactly which pointer each line of Python changes.',
-    language: 'Python',
-    tags: ['Traverse', 'Prepend', 'Append', 'Insert', 'Remove', 'Find', 'Reverse', 'Pop'],
-  },
-  {
     slug: 'graph-representation',
     title: 'Graph Representation Lab',
     summary:
@@ -38,6 +30,14 @@ export const topics: Topic[] = [
       'Watch a min heap and a max heap live in one array: insert with sift-up, delete the root with sift-down, and see why heapify is O(n).',
     language: 'Python',
     tags: ['Min heap', 'Max heap', 'Insert', 'Delete', 'Heapify'],
+  },
+  {
+    slug: 'linked-list',
+    title: 'Linked List Lab',
+    summary:
+      'Step through singly and doubly linked list operations line by line and watch exactly which pointer each line of Python changes.',
+    language: 'Python',
+    tags: ['Traverse', 'Prepend', 'Append', 'Insert', 'Remove', 'Find', 'Reverse', 'Pop'],
   },
 ];
 
