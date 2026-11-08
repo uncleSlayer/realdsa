@@ -28,12 +28,6 @@ import { url } from '../lib/url';
                 <span class="topic-num">{String(i + 1).padStart(2, '0')}</span>
                 <span class="topic-title">{t.title}</span>
                 <span class="topic-sum">{t.summary}</span>
-                <span class="topic-tags">
-                  <span class="topic-lang">{t.language}</span>
-                  {t.tags.map((tag) => (
-                    <span>{tag}</span>
-                  ))}
-                </span>
                 <span class="topic-go">Open lab →</span>
               </a>
             </li>
@@ -96,24 +90,6 @@ import { url } from '../lib/url';
   .topic-sum {
     color: var(--muted);
     font-size: 0.95rem;
-  }
-  .topic-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-  .topic-tags span {
-    font: 400 0.74rem var(--mono);
-    background: var(--bg);
-    border: 1px solid var(--line);
-    border-radius: 5px;
-    padding: 1px 7px;
-  }
-  .topic-tags .topic-lang {
-    background: var(--fg);
-    border-color: var(--fg);
-    color: var(--bg);
-    font-weight: 600;
   }
   .topic-go {
     font: 600 0.9rem var(--body);
